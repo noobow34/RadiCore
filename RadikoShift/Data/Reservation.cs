@@ -59,6 +59,12 @@ namespace RadikoShift.Data
         [Column("is_manual")]
         public bool? IsManual { get; set; } = false;
 
+        /// <summary>
+        /// 繰り返し録音で今回分完了後に前回分を自動削除するか
+        /// </summary>
+        [Column("auto_delete_previous")]
+        public bool AutoDeletePrevious { get; set; } = false;
+
         public override string ToString()
         {
             var timeRange = $"{StartTime:HH:mm}-{EndTime:HH:mm}";

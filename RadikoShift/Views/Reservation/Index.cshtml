@@ -80,6 +80,13 @@
                     </label>
                 </div>
 
+                <div id="editAutoDeleteRow" class="form-check mt-2 d-none">
+                    <input class="form-check-input" type="checkbox" id="editAutoDelete">
+                    <label class="form-check-label small" for="editAutoDelete">
+                        録音完了後に前回分を自動削除
+                    </label>
+                </div>
+
             </div>
 
             <div class="modal-footer">
@@ -177,6 +184,7 @@
         $(document).on('click', '.edit-reserve-btn', function () {
 
             const $btn = $(this)
+            const repeatType = $btn.data('repeat')
 
             $('#editReservationId').val($btn.data('id'))
             $('#editTitle').val($btn.data('title'))
@@ -184,6 +192,11 @@
             $('#editStartTime').val($btn.data('start'))
             $('#editEndTime').val($btn.data('end'))
             $('#editIsEdited').prop('checked', $btn.data('edited'))
+            $('#editAutoDelete').prop('checked', $btn.data('autodelete') === true || $btn.data('autodelete') === 'true')
+
+            // 繰り返し予約の場合のみ自動削除チェックボックスを表示
+            const isRepeat = repeatType === 'Weekly' || repeatType === 'Daily'
+            $('#editAutoDeleteRow').toggleClass('d-none', !isRepeat)
 
             const modal = bootstrap.Modal.getOrCreateInstance(
                 document.getElementById('editReservationModal')
@@ -200,7 +213,8 @@
                 castName: $('#editCast').val(),
                 startTime: $('#editStartTime').val(),
                 endTime: $('#editEndTime').val(),
-                isEdited: $('#editIsEdited').is(':checked')
+                isEdited: $('#editIsEdited').is(':checked'),
+                autoDeletePrevious: $('#editAutoDelete').is(':checked')
             }
 
             $.post('/Reservation/Update', payload)

@@ -15,5 +15,7 @@ namespace RadikoShift.Reservations
         public RepeatType RepeatType { get; set; }
 
         public bool IsEdited { get; set; }
+
+        public bool AutoDeletePrevious { get; set; }
     }
 }

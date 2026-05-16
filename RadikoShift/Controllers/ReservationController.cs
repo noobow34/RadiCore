@@ -47,7 +47,8 @@ namespace RadikoShift.Controllers
                 Status      = ReservationStatus.Scheduled,
                 CreatedAt   = DateTime.Now,
                 UpdatedAt   = DateTime.Now,
-                IsManual    = req.IsEdited
+                IsManual    = req.IsEdited,
+                AutoDeletePrevious = req.AutoDeletePrevious
             };
 
             _db.Reservations.Add(reservation);
@@ -68,6 +69,7 @@ namespace RadikoShift.Controllers
             reservation.StartTime   = req.StartTime;
             reservation.EndTime     = req.EndTime;
             reservation.IsManual    = req.IsEdited;
+            reservation.AutoDeletePrevious = req.AutoDeletePrevious;
             reservation.UpdatedAt   = DateTime.Now;
             await _db.SaveChangesAsync();
 

@@ -200,12 +200,50 @@ namespace RadikoShift.Jobs
                 this.JournalWriteLine("ステータス更新");
                 this.JournalWriteLine($"録音完了 予約ID:{reservationId}");
 
+                // 繰り返し予約かつ自動削除が有効な場合、今回分を除く前回録音を削除
+                bool autoDeleted = false;
+                if ((reservation.RepeatType == RepeatType.Weekly || reservation.RepeatType == RepeatType.Daily)
+                    && reservation.AutoDeletePrevious)
+                {
+                    var previousRecordings = await shiftContext.Recordings
+                        .Where(r => r.ReservationId == reservation.Id && r.Id != rec.Id)
+                        .ToListAsync();
+
+                    if (previousRecordings.Count > 0)
+                    {
+                        // recording_audio_data も含めて削除（CASCADE 設定がない場合に備え先に削除）
+                        var previousIds = previousRecordings.Select(r => r.Id).ToList();
+                        foreach (var prevId in previousIds)
+                        {
+                            await using var delAudioCmd = new NpgsqlCommand(
+                                "DELETE FROM recording_audio_data WHERE recording_id = @id", conn);
+                            delAudioCmd.Parameters.AddWithValue("id", prevId);
+                            await delAudioCmd.ExecuteNonQueryAsync();
+                        }
+
+                        shiftContext.Recordings.RemoveRange(previousRecordings);
+                        await shiftContext.SaveChangesAsync();
+
+                        autoDeleted = true;
+                        this.JournalWriteLine($"前回録音を自動削除 削除件数:{previousRecordings.Count} IDs:[{string.Join(",", previousIds)}]");
+                    }
+                    else
+                    {
+                        this.JournalWriteLine("自動削除対象の前回録音なし");
+                    }
+                }
+
                 var api = new SlackServiceBuilder()
                     .UseApiToken(Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN"))
                     .GetApiClient();
+
+                string slackText = $"予約完了\n{reservation}\n{rec}";
+                if (autoDeleted)
+                    slackText += "\n（前回分の録音を自動削除しました）";
+
                 await api.Chat.PostMessage(new Message
                 {
-                    Text    = $"予約完了\n{reservation}\n{rec}",
+                    Text    = slackText,
                     Channel = Environment.GetEnvironmentVariable("SLACK_NOTIFY_CHANNEL")
                 });
 

@@ -44,7 +44,9 @@
                                         data-cast="@r.CastName"
                                         data-start="@r.StartTime.ToString(@"HH\:mm")"
                                         data-end="@r.EndTime.ToString(@"HH\:mm")"
-                                        data-edited="@r.IsManual?.ToString().ToLower()">
+                                        data-edited="@r.IsManual?.ToString().ToLower()"
+                                        data-repeat="@r.RepeatType"
+                                        data-autodelete="@r.AutoDeletePrevious.ToString().ToLower()">
                                     ✏️
                                 </button>
                                 <button class="btn btn-sm btn-outline-danger cancel-btn"
@@ -106,7 +108,9 @@
                                         data-cast="@r.CastName"
                                         data-start="@r.StartTime.ToString(@"HH\:mm")"
                                         data-end="@r.EndTime.ToString(@"HH\:mm")"
-                                        data-editted="@r.IsManual?.ToString().ToLower()">
+                                        data-edited="@r.IsManual?.ToString().ToLower()"
+                                        data-repeat="@r.RepeatType"
+                                        data-autodelete="@r.AutoDeletePrevious.ToString().ToLower()">
                                     ✏
                                 </button>
 

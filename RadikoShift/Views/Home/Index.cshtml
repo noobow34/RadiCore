@@ -118,6 +118,9 @@
         $(document).on('change', '.repeat-option', function () {
             $('.repeat-option').not(this).prop('checked', false);
             $(this).prop('checked', true);
+            const isRepeat = $(this).val() !== 'once';
+            $('#autoDeleteRow').toggleClass('d-none', !isRepeat);
+            if (!isRepeat) $('#autoDeleteCheckbox').prop('checked', false);
         });
 
         $(document).on('click', '#confirmReserve', function () {
@@ -131,7 +134,8 @@
                 startTime: $('#modalStartTime').val(),
                 endTime: $('#modalEndTime').val(),
                 repeatType: repeatType,
-                isEdited: $('#isEditedCheckbox').is(':checked')
+                isEdited: $('#isEditedCheckbox').is(':checked'),
+                autoDeletePrevious: $('#autoDeleteCheckbox').is(':checked')
             }
 
             $.post('/Reservation/Create', payload)
