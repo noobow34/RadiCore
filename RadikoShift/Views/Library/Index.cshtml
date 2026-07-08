@@ -54,51 +54,50 @@
 
 @section Scripts {
     <script>
-        $(function () {
+        let deleteTargetId = null;
 
-            let deleteTargetId = null;
+        function showToast(message, type) {
+            const toastEl = document.getElementById('deleteToast');
 
-            // 削除ボタン → モーダル表示
-            $(document).on('click', '.btn-delete', function () {
-                deleteTargetId = $(this).data('id');
+            toastEl.classList.remove('text-bg-success', 'text-bg-danger');
+            toastEl.classList.add(`text-bg-${type}`);
+            toastEl.querySelector('.toast-body').textContent = message;
 
-                const modalEl = document.getElementById('deleteModal');
-                const modal = new bootstrap.Modal(modalEl);
-                modal.show();
-            });
+            new bootstrap.Toast(toastEl, { delay: 2000 }).show();
+        }
 
-            // モーダルの「削除する」
-            $(document).on('click', '#confirmDelete', function () {
-                if (!deleteTargetId) return;
+        async function reloadList() {
+            const res = await fetch('/Library/Index');
+            const html = await res.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const container = document.getElementById('library-container');
+            container.replaceChildren(...doc.querySelectorAll('#library-container > *'));
+        }
 
-                $.post('/Library/Delete', { id: deleteTargetId })
-                    .done(function () {
-                        showToast('削除しました', 'success');
-                        reloadList();
-                    })
-                    .fail(function () {
-                        showToast('削除に失敗しました', 'danger');
-                    })
-                    .always(function () {
-                        bootstrap.Modal.getInstance(
-                            document.getElementById('deleteModal')
-                        ).hide();
-                        deleteTargetId = null;
-                    });
-            });
+        // 削除ボタン → モーダル表示
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.btn-delete');
+            if (!btn) return;
 
-            function reloadList() {
-                $('#library-container').load('/Library/Index #library-container > *');
-            }
+            deleteTargetId = btn.dataset.id;
+            new bootstrap.Modal(document.getElementById('deleteModal')).show();
+        });
 
-            function showToast(message, type) {
-                const toastEl = document.getElementById('deleteToast');
+        // モーダルの「削除する」
+        document.addEventListener('click', async function (e) {
+            if (!e.target.closest('#confirmDelete')) return;
+            if (!deleteTargetId) return;
 
-                toastEl.classList.remove('text-bg-success', 'text-bg-danger');
-                toastEl.classList.add(`text-bg-${type}`);
-                toastEl.querySelector('.toast-body').textContent = message;
-
-                new bootstrap.Toast(toastEl, { delay: 2000 }).show();
+            try {
+                const res = await fetch('/Library/Delete', { method: 'POST', body: new URLSearchParams({ id: deleteTargetId }) });
+                if (!res.ok) throw new Error();
+                showToast('削除しました', 'success');
+                await reloadList();
+            } catch {
+                showToast('削除に失敗しました', 'danger');
+            } finally {
+                bootstrap.Modal.getInstance(document.getElementById('deleteModal'))?.hide();
+                deleteTargetId = null;
             }
         });
     </script>
