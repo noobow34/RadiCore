@@ -68,10 +68,9 @@
     <PackageReference Include="z440.atl.core" Version="7.10.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="Tools\rec_radiko_ts.sh">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+  <!--
+    Tools/rec_radiko_ts.sh は録音処理をC#化(Radiko/RadikoRecorder.cs)したため実行時には使用しない。
+    Radiko側の仕様変更を追跡するための参照実装としてソースツリーには残し、出力ディレクトリへのコピーは行わない。
+  -->
 
 </Project>
