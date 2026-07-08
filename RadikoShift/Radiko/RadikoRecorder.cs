@@ -127,7 +127,8 @@ namespace RadikoShift.Radiko
                             "-y", chunkFile
                         };
 
-                        int exitCode = await RunProcessAsync("ffmpeg", ffmpegArgs);
+                        int exitCode = await RunProcessAsync("ffmpeg", ffmpegArgs, log,
+                            $"チャンク{chunkNo}取得 (seek={seekStr}, end_at={endAtStr}, l={l}s)");
                         if (exitCode != 0)
                         {
                             log($"チャンク{chunkNo}のダウンロードに失敗しました (exit={exitCode})");
@@ -137,10 +138,12 @@ namespace RadikoShift.Radiko
 
                         chunkFiles.Add(chunkFile);
 
-                        double durationSec = await GetDurationAsync(chunkFile);
+                        double durationSec = await GetDurationAsync(chunkFile, log, $"チャンク{chunkNo}");
                         long chunkSec = (long)Math.Floor(durationSec + 0.5);
                         if (chunkSec <= 0)
                             chunkSec = l;
+
+                        log($"チャンク{chunkNo}取得完了 (duration={chunkSec}s, 残り={leftSec - chunkSec}s)");
 
                         leftSec -= chunkSec;
                         seekTime = seekTime.AddSeconds(chunkSec);
@@ -166,7 +169,8 @@ namespace RadikoShift.Radiko
                         "-y", outputPath
                     };
 
-                    int concatExit = await RunProcessAsync("ffmpeg", concatArgs);
+                    int concatExit = await RunProcessAsync("ffmpeg", concatArgs, log,
+                        $"チャンク結合 (chunk数={chunkFiles.Count}, output={outputPath})");
                     if (concatExit != 0)
                     {
                         log($"チャンク結合に失敗しました (exit={concatExit})");
@@ -211,8 +215,10 @@ namespace RadikoShift.Radiko
             throw new RadikoException($"{operationName}に失敗しました", lastEx);
         }
 
-        private static async Task<int> RunProcessAsync(string fileName, List<string> args)
+        private static async Task<int> RunProcessAsync(string fileName, List<string> args, Action<string> log, string description)
         {
+            log($"{fileName}実行: {description}");
+
             var psi = new ProcessStartInfo
             {
                 FileName = fileName,
@@ -224,11 +230,15 @@ namespace RadikoShift.Radiko
             using var process = new Process { StartInfo = psi };
             process.Start();
             await process.WaitForExitAsync();
+
+            log($"{fileName}終了: {description} (exit={process.ExitCode})");
             return process.ExitCode;
         }
 
-        private static async Task<double> GetDurationAsync(string filePath)
+        private static async Task<double> GetDurationAsync(string filePath, Action<string> log, string description)
         {
+            log($"ffprobe実行: {description}");
+
             var psi = new ProcessStartInfo
             {
                 FileName = "ffprobe",
@@ -248,7 +258,9 @@ namespace RadikoShift.Radiko
             string output = await process.StandardOutput.ReadToEndAsync();
             await process.WaitForExitAsync();
 
-            return double.TryParse(output.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : 0;
+            double duration = double.TryParse(output.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : 0;
+            log($"ffprobe終了: {description} (exit={process.ExitCode}, duration={duration}s)");
+            return duration;
         }
     }
 }
