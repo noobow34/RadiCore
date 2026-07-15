@@ -22,5 +22,20 @@ namespace RadikoShift.Radiko
 
         /// <summary>放送局一覧（都道府県ごと）</summary>
         public const string StationListPref = "https://radiko.jp/v3/station/list/[AREA].xml";
+
+        /// <summary>プレミアムログイン（radiko_session取得用）</summary>
+        public const string PremiumLogin = "https://radiko.jp/v4/api/member/login";
+
+        /// <summary>プレミアムログアウト</summary>
+        public const string PremiumLogout = "https://radiko.jp/v4/api/member/logout";
+
+        /// <summary>認証1（AuthToken/PartialKeyの元情報を取得）</summary>
+        public const string Auth1 = "https://radiko.jp/v2/api/auth1";
+
+        /// <summary>認証2（エリアID判定）</summary>
+        public const string Auth2 = "https://radiko.jp/v2/api/auth2";
+
+        /// <summary>タイムフリー再生用HLSプレイリストURL</summary>
+        public const string StationStream = "https://radiko.jp/v3/station/stream/pc_html5/[stationCode].xml";
     }
 }

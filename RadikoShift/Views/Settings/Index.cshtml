@@ -140,10 +140,12 @@
     }
 
     // ページロード時にサマリー取得（実行中ならそのままポーリング開始）
-    $.get('/Settings/GetLastRefreshLog').done(function (res) {
-        applyLogSummary(res);
-        if (res.exists && res.isRunning) startPolling();
-    });
+    fetch('/Settings/GetLastRefreshLog')
+        .then(res => res.json())
+        .then(function (res) {
+            applyLogSummary(res);
+            if (res.exists && res.isRunning) startPolling();
+        });
 
     // ポーリング設定
     const POLL_INTERVAL_MS = 3000;
@@ -172,18 +174,20 @@
         if (pollTimer) return; // 二重起動防止
         setCardRunning(true);
         pollDeadline = Date.now() + POLL_TIMEOUT_MS;
-        pollTimer = setInterval(async function () {
+        pollTimer = setInterval(function () {
             if (Date.now() > pollDeadline) {
                 stopPolling();
                 showToast('実行完了を確認できませんでした（タイムアウト）。', 'danger');
                 return;
             }
-            $.get('/Settings/GetLastRefreshLog').done(function (res) {
-                if (!res.exists || res.isRunning) return; // まだ実行中
-                stopPolling();
-                applyLogSummary(res);
-                showToast(res.succeeded ? '番組表更新が完了しました。' : '番組表更新が失敗しました。', res.succeeded ? 'success' : 'danger');
-            });
+            fetch('/Settings/GetLastRefreshLog')
+                .then(res => res.json())
+                .then(function (res) {
+                    if (!res.exists || res.isRunning) return; // まだ実行中
+                    stopPolling();
+                    applyLogSummary(res);
+                    showToast(res.succeeded ? '番組表更新が完了しました。' : '番組表更新が失敗しました。', res.succeeded ? 'success' : 'danger');
+                });
         }, POLL_INTERVAL_MS);
     }
 
@@ -198,12 +202,13 @@
         btn.disabled = true;
         btn.textContent = '実行中...';
 
-        $.post('/Settings/RunNow')
-            .done(function (res) {
+        fetch('/Settings/RunNow', { method: 'POST' })
+            .then(function (res) { if (!res.ok) throw new Error(); return res.json(); })
+            .then(function (res) {
                 showToast(res.message, 'success');
                 startPolling();
             })
-            .fail(function () {
+            .catch(function () {
                 showToast('エラーが発生しました。', 'danger');
                 btn.disabled = false;
                 btn.textContent = '今すぐ実行';
@@ -220,26 +225,29 @@
     });
 
     // 設定保存
-    document.getElementById('btnSave').addEventListener('click', function () {
+    document.getElementById('btnSave').addEventListener('click', async function () {
         const btn = this;
         btn.disabled = true;
         btn.textContent = '保存中...';
 
-        $.post('/Settings/Save', {
-            refreshHour:   $('#refreshHour').val(),
-            refreshMinute: $('#refreshMinute').val(),
-            parallelCount: $('#parallelCount').val()
-        })
-            .done(function (res) {
-                showToast(res.message, 'success');
-            })
-            .fail(function () {
-                showToast('エラーが発生しました。', 'danger');
-            })
-            .always(function () {
-                btn.disabled = false;
-                btn.textContent = '保存';
+        try {
+            const res = await fetch('/Settings/Save', {
+                method: 'POST',
+                body: new URLSearchParams({
+                    refreshHour: document.getElementById('refreshHour').value,
+                    refreshMinute: document.getElementById('refreshMinute').value,
+                    parallelCount: document.getElementById('parallelCount').value
+                })
             });
+            if (!res.ok) throw new Error();
+            const data = await res.json();
+            showToast(data.message, 'success');
+        } catch {
+            showToast('エラーが発生しました。', 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '保存';
+        }
     });
 
     // ログ表示
@@ -249,8 +257,9 @@
         logContent.textContent = '読み込み中...';
         logSummary.classList.add('d-none');
 
-        $.get('/Settings/GetLastRefreshLog')
-            .done(function (res) {
+        fetch('/Settings/GetLastRefreshLog')
+            .then(function (res) { if (!res.ok) throw new Error(); return res.json(); })
+            .then(function (res) {
                 if (!res.exists) {
                     logContent.textContent = '実行履歴がありません。';
                 } else {
@@ -265,7 +274,7 @@
                     logContent.scrollTop = logContent.scrollHeight;
                 }
             })
-            .fail(function () {
+            .catch(function () {
                 logContent.textContent = 'ログの取得に失敗しました。';
             });
 

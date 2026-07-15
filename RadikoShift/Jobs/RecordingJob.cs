@@ -4,10 +4,10 @@ using Npgsql;
 using Quartz;
 using RadikoShift.Data;
 using RadikoShift.Infrastructure;
+using RadikoShift.Radiko;
 using RadikoShift.Reservations;
 using SlackNet;
 using SlackNet.WebApi;
-using System.Diagnostics;
 using File = System.IO.File;
 
 namespace RadikoShift.Jobs
@@ -111,26 +111,16 @@ namespace RadikoShift.Jobs
                     }
                 }
 
-                string startTime = startDateTime.ToString("yyyyMMddHHmmss");
-                string endTime   = endDateTime.ToString("yyyyMMddHHmmss");
                 string fileName  = $@"0_{baseDate:yyyyMMdd}_{programName}.m4a";
-                string arg1 = $@"-s {station} -f {startTime} -t {endTime} -o ""{fileName}""";
-                string arg2 = $@"-m ""{radikoMail}"" -p ""{radikoPass}""";
+                this.JournalWriteLine($"録音開始: station={station} from={startDateTime:yyyyMMddHHmmss} to={endDateTime:yyyyMMddHHmmss} output={fileName}");
 
-                ProcessStartInfo recProcessInfo = new()
+                bool recordSuccess = await RadikoRecorder.RecordAsync(
+                    station, startDateTime, endDateTime, fileName, radikoMail, radikoPass,
+                    msg => this.JournalWriteLine(msg));
+
+                if (!recordSuccess)
                 {
-                    FileName  = "Tools/rec_radiko_ts.sh",
-                    Arguments = $"{arg1} {arg2}"
-                };
-                this.JournalWriteLine($"録音コマンド実行: {recProcessInfo.FileName} {arg1} -m *** -p ***");
-
-                Process recProcess = new() { StartInfo = recProcessInfo };
-                recProcess.Start();
-                recProcess.WaitForExitAsync().Wait();
-
-                if (recProcess.ExitCode != 0)
-                {
-                    this.JournalWriteLine($"録音失敗 予約ID:{reservationId} 録音コマンドの終了コード:{recProcess.ExitCode}");
+                    this.JournalWriteLine($"録音失敗 予約ID:{reservationId}");
                     reservation.Status = ReservationStatus.Failed;
                     reservation.UpdatedAt = DateTime.Now;
                     await shiftContext.SaveChangesAsync();
