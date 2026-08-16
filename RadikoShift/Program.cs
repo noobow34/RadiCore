@@ -50,6 +50,13 @@ builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o
 });
 
 builder.Services.AddDbContext<ShiftContext>();
+
+// デプロイスクリプトのヘルスチェック用。判定対象は「プロセスが起動してリクエストを受けられるか」と
+// 「DBに到達できるか」のみ。Radikoへの番組取得や録音ジョブの実行状況は、
+// 外部要因の失敗でデプロイがロールバックされるのを避けるため意図的に含めない。
+builder.Services.AddHealthChecks()
+    .AddNpgSql(rsCs, name: "postgres");
+
 builder.Services.AddScoped<AppSettingsService>();
 builder.Services.AddSingleton<QuartzScheduler>(new QuartzScheduler(sch));
 builder.Services.AddHostedService<ReservationBootstrapService>();
@@ -63,5 +70,9 @@ app.UseRouting();
 app.MapStaticAssets();
 app.MapControllerRoute(name: "default", pattern: "{controller=Home}/{action=Index}/{id?}")
    .WithStaticAssets();
+
+// ローカルからの curl で叩けるようにする。現状このアプリに認可ミドルウェアは無いため
+// AllowAnonymous は実質無効だが、意図の明示として付けている。
+app.MapHealthChecks("/healthz").AllowAnonymous();
 
 app.Run();
