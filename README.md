@@ -199,11 +199,11 @@ dotnet test RadiCore.slnx --settings RadiCore.Test/test.runsettings
 
 本プロジェクトは [MIT License](LICENSE) のもとで公開しています。
 
-`RadiCore/Tools/rec_radiko_ts.sh` は uru 氏（https://twitter.com/uru_2 ）による第三者成果物で、同じく MIT License です（[LICENSE](RadiCore/Tools/LICENSE)）。録音処理の C# 化に伴い**実行時には使用していません**が、radiko 側の仕様変更を追跡する参照実装としてソースツリーに残しています。
+`RadiCore/Tools/rec_radiko_ts.sh` は uru 氏による [rec_radiko_ts](https://github.com/uru2/rec_radiko_ts) を同梱したもので、同じく MIT License です（[LICENSE](RadiCore/Tools/LICENSE)）。録音処理の C# 化に伴い**実行時には使用していません**が、radiko 側の仕様変更を追跡する参照実装としてソースツリーに残しています。
 
 ## 謝辞
 
-- **rec_radiko_ts** — uru 氏によるシェルスクリプト実装。radiko のタイムフリー録音手順の参照実装として活用させていただきました。
+- [uru2/rec_radiko_ts](https://github.com/uru2/rec_radiko_ts) — uru 氏によるシェルスクリプト実装。radiko のタイムフリー録音手順の参照実装として活用させていただきました。
 
 ## 免責
 
