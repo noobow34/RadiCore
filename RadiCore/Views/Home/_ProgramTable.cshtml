@@ -1,0 +1,169 @@
+﻿@using RadiCore.ViewModel
+@model List<ProgramItemViewModel>
+
+@if (!Model.Any())
+{
+    <div class="text-muted text-center">
+        番組情報がありません
+    </div>
+}
+else
+{
+    foreach (var p in Model)
+    {
+        <div class="program-item @(p.IsNow ? "now" : "")">
+            <div class="d-flex justify-content-between align-items-center">
+                <strong>@p.TimeRange</strong>
+
+                @if (p.IsNow)
+                {
+                    <span class="badge bg-danger">ON AIR</span>
+                }
+
+                <button class="btn btn-sm btn-outline-primary reserve-btn"
+                        data-program-id="@p.ProgramId"
+                        data-title="@p.Title"
+                        data-cast="@p.CastName"
+                        data-starttime="@p.StartTime"
+                        data-endtime="@p.EndTime"
+                        data-time="@p.TimeRange">
+                    予約
+                </button>
+            </div>
+
+            <div class="title">@p.Title</div>
+
+            @if (!string.IsNullOrEmpty(p.CastName))
+            {
+                <div class="text-muted small">@p.CastName</div>
+            }
+
+            @if (!string.IsNullOrEmpty(p.Description?.Trim()))
+            {
+                <details>
+                    <summary class="small">詳細</summary>
+                    <p class="small">@Html.Raw(@p.Description)</p>
+                </details>
+            }
+        </div>
+    }
+    <div class="modal fade" id="reserveModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">録音予約</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="mb-2 row align-items-center">
+                        <label class="col-3 col-form-label">タイトル</label>
+                        <div class="col-9">
+                            <input class="form-control form-control-sm" id="modalTitle">
+                        </div>
+                    </div>
+
+                    <div class="mb-2 row align-items-center">
+                        <label class="col-3 col-form-label">時間</label>
+                        <div class="col-9 d-flex align-items-center gap-2">
+                            <input type="time"
+                                   class="form-control form-control-sm"
+                                   id="modalStartTime"
+                                   style="max-width:120px">
+
+                            <span>～</span>
+
+                            <input type="time"
+                                   class="form-control form-control-sm"
+                                   id="modalEndTime"
+                                   style="max-width:120px">
+                        </div>
+                    </div>
+
+                    <div class="mb-2 row align-items-center">
+                        <label class="col-3 col-form-label">出演</label>
+                        <div class="col-9">
+                            <input class="form-control form-control-sm" id="modalCast">
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <div class="form-check form-check-inline mb-0">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="isEditedCheckbox"
+                                   value="true">
+                            <label class="form-check-label small" for="isEditedCheckbox">
+                                手動編集として保存
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex align-items-center gap-3 mb-2">
+
+                        <div class="form-check form-check-inline mb-0">
+                            <input class="form-check-input repeat-option"
+                                   type="checkbox"
+                                   value="once"
+                                   id="repeatOnce"
+                                   checked>
+                            <label class="form-check-label small" for="repeatOnce">
+                                今回のみ
+                            </label>
+                        </div>
+
+                        <div class="form-check form-check-inline mb-0">
+                            <input class="form-check-input repeat-option"
+                                   type="checkbox"
+                                   value="weekly"
+                                   id="repeatWeekly">
+                            <label class="form-check-label small" for="repeatWeekly">
+                                毎週
+                            </label>
+                        </div>
+
+                        <div class="form-check form-check-inline mb-0">
+                            <input class="form-check-input repeat-option"
+                                   type="checkbox"
+                                   value="daily"
+                                   id="repeatDaily">
+                            <label class="form-check-label small" for="repeatDaily">
+                                毎日
+                            </label>
+                        </div>
+
+                    </div>
+
+                    <div id="autoDeleteRow" class="d-none mb-1">
+                        <div class="form-check form-check-inline mb-0">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="autoDeleteCheckbox"
+                                   value="true">
+                            <label class="form-check-label small" for="autoDeleteCheckbox">
+                                録音完了後に前回分を自動削除
+                            </label>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="modalProgramId" value="">
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary"
+                            data-bs-dismiss="modal">
+                        キャンセル
+                    </button>
+                    <button class="btn btn-primary" id="confirmReserve">
+                        予約する
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}

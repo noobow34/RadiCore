@@ -1,0 +1,263 @@
+﻿@using RadiCore.Data
+@model IEnumerable<RadiCore.Data.Reservation>
+<div class="container">
+    <h3 class="mb-3">📻 予約一覧</h3>
+
+    <div id="reservation-container">
+        @await Html.PartialAsync("_ReservationList", Model)
+    </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal fade" id="confirmCancelModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">確認</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                この予約をキャンセルしますか？
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">戻る</button>
+                <button type="button" class="btn btn-danger" id="confirmCancelBtn">キャンセルする</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="appToast" class="toast text-bg-success border-0">
+        <div class="toast-body"></div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="editReservationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">予約編集</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <input type="hidden" id="editReservationId">
+
+                <div class="mb-2 row align-items-center">
+                    <label class="col-3 col-form-label">タイトル</label>
+                    <div class="col-9">
+                        <input class="form-control form-control-sm" id="editTitle">
+                    </div>
+                </div>
+
+                <div class="mb-2 row align-items-center">
+                    <label class="col-3 col-form-label">時間</label>
+                    <div class="col-9 d-flex align-items-center gap-2">
+                        <input type="time" class="form-control form-control-sm"
+                               id="editStartTime" style="max-width:120px">
+                        <span>～</span>
+                        <input type="time" class="form-control form-control-sm"
+                               id="editEndTime" style="max-width:120px">
+                    </div>
+                </div>
+
+                <div class="mb-2 row align-items-center">
+                    <label class="col-3 col-form-label">出演</label>
+                    <div class="col-9">
+                        <input class="form-control form-control-sm" id="editCast">
+                    </div>
+                </div>
+
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="editIsEdited">
+                    <label class="form-check-label small" for="editIsEdited">
+                        手動編集として保存
+                    </label>
+                </div>
+
+                <div id="editAutoDeleteRow" class="form-check mt-2 d-none">
+                    <input class="form-check-input" type="checkbox" id="editAutoDelete">
+                    <label class="form-check-label small" for="editAutoDelete">
+                        録音完了後に前回分を自動削除
+                    </label>
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button class="btn btn-primary" id="saveReservationEdit">
+                    保存
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Rerun Previous Modal -->
+<div class="modal fade" id="confirmRerunPrevModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">確認</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                前回分の録音を再実行しますか？
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">戻る</button>
+                <button type="button" class="btn btn-primary" id="confirmRerunPrevBtn">
+                    再実行する
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    string RenderSchedule(Reservation r)
+    {
+        return r.RepeatType switch
+        {
+            RepeatType.Once =>
+                $"{r.TargetDate:yyyy/MM/dd(ddd)} {r.StartTime:HH:mm} - {r.EndTime:HH:mm}",
+
+            RepeatType.Daily =>
+                $"毎日 {r.StartTime:HH:mm} - {r.EndTime:HH:mm}",
+
+            RepeatType.Weekly =>
+                $"毎週 {r.RepeatDays!.Value.ToJapanese()} {r.StartTime:HH:mm} - {r.EndTime:HH:mm}",
+
+            _ => "-"
+        };
+    }
+}
+
+@section Scripts {
+    <script>
+        let cancelTargetId = null;
+
+        function showToast(message, type) {
+            const toastEl = document.getElementById('appToast');
+
+            toastEl.classList.remove('text-bg-success', 'text-bg-danger');
+            toastEl.classList.add(`text-bg-${type}`);
+
+            toastEl.querySelector('.toast-body').textContent = message;
+
+            new bootstrap.Toast(toastEl, { delay: 2000 }).show();
+        }
+
+        async function reloadReservationList() {
+            const res = await fetch('/Reservation/ListPartial');
+            document.getElementById('reservation-container').innerHTML = await res.text();
+        }
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.cancel-btn');
+            if (!btn) return;
+
+            cancelTargetId = btn.dataset.id;
+            new bootstrap.Modal(document.getElementById('confirmCancelModal')).show();
+        });
+
+        document.addEventListener('click', async function (e) {
+            if (!e.target.closest('#confirmCancelBtn')) return;
+            if (!cancelTargetId) return;
+
+            const targetId = cancelTargetId;
+            cancelTargetId = null;
+            bootstrap.Modal.getInstance(document.getElementById('confirmCancelModal'))?.hide();
+
+            try {
+                const res = await fetch('/Reservation/Cancel', { method: 'POST', body: new URLSearchParams({ id: targetId }) });
+                if (!res.ok) throw new Error();
+                showToast('予約をキャンセルしました', 'success');
+                await reloadReservationList();
+            } catch {
+                showToast('キャンセルに失敗しました', 'danger');
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.edit-reserve-btn');
+            if (!btn) return;
+
+            const repeatType = btn.dataset.repeat;
+
+            document.getElementById('editReservationId').value = btn.dataset.id;
+            document.getElementById('editTitle').value = btn.dataset.title;
+            document.getElementById('editCast').value = btn.dataset.cast;
+            document.getElementById('editStartTime').value = btn.dataset.start;
+            document.getElementById('editEndTime').value = btn.dataset.end;
+            document.getElementById('editIsEdited').checked = btn.dataset.edited === 'true';
+            document.getElementById('editAutoDelete').checked = btn.dataset.autodelete === 'true';
+
+            // 繰り返し予約の場合のみ自動削除チェックボックスを表示
+            const isRepeat = repeatType === 'Weekly' || repeatType === 'Daily';
+            document.getElementById('editAutoDeleteRow').classList.toggle('d-none', !isRepeat);
+
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('editReservationModal')).show();
+        });
+
+        document.addEventListener('click', async function (e) {
+            if (!e.target.closest('#saveReservationEdit')) return;
+
+            const payload = {
+                id: document.getElementById('editReservationId').value,
+                title: document.getElementById('editTitle').value,
+                castName: document.getElementById('editCast').value,
+                startTime: document.getElementById('editStartTime').value,
+                endTime: document.getElementById('editEndTime').value,
+                isEdited: document.getElementById('editIsEdited').checked,
+                autoDeletePrevious: document.getElementById('editAutoDelete').checked
+            };
+
+            try {
+                const res = await fetch('/Reservation/Update', { method: 'POST', body: new URLSearchParams(payload) });
+                if (!res.ok) throw new Error();
+
+                document.getElementById('reservation-list').innerHTML = await res.text();
+                bootstrap.Modal.getInstance(document.getElementById('editReservationModal'))?.hide();
+                showToast('予約を更新しました', 'success');
+            } catch {
+                showToast('予約の更新に失敗しました', 'danger');
+            }
+        });
+
+        let rerunPrevTargetId = null;
+
+        // 🔄 ボタン押下
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.rerunprev-btn');
+            if (!btn) return;
+
+            rerunPrevTargetId = btn.dataset.id;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmRerunPrevModal')).show();
+        });
+
+        // 確定ボタン押下
+        document.getElementById('confirmRerunPrevBtn').addEventListener('click', async function () {
+            if (!rerunPrevTargetId) return;
+
+            const targetId = rerunPrevTargetId;
+            rerunPrevTargetId = null;
+            bootstrap.Modal.getInstance(document.getElementById('confirmRerunPrevModal'))?.hide();
+
+            try {
+                const res = await fetch('/Reservation/RerunPrevious', { method: 'POST', body: new URLSearchParams({ id: targetId }) });
+                if (!res.ok) throw new Error();
+                showToast('前回分の録音を再実行しました', 'success');
+            } catch {
+                showToast('再実行に失敗しました', 'danger');
+            }
+        });
+    </script>
+}

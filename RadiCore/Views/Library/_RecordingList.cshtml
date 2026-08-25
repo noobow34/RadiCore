@@ -1,0 +1,265 @@
+﻿@using RadiCore.ViewModel
+@using RadiCore.Data
+@model IEnumerable<LibraryListViewModel>
+
+@{
+    var recurringGroups = Model
+        .Where(x => x.ParentReservation != null &&
+                    x.ParentReservation.RepeatType != RepeatType.Once)
+        .GroupBy(x => x.ParentReservation!.Id);
+
+    var normalItems = Model
+        .Where(x => x.ParentReservation == null ||
+                    x.ParentReservation.RepeatType == RepeatType.Once);
+}
+
+<!-- ===== PC ===== -->
+<div class="d-none d-md-block">
+
+    <!-- ===== 定期録音：Accordion（全部開く） ===== -->
+    <div class="accordion mb-3" id="recurringAccordion">
+        @foreach (var g in recurringGroups)
+        {
+            var res = g.First().ParentReservation!;
+            var bodyId = $"body_{res.Id}";
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#@bodyId"
+                            aria-expanded="true">
+
+                        <strong>@res.ProgramName</strong>
+
+                        <span class="ms-2 text-muted small">
+                            @res.StationName /
+                            @(
+                                                    res.RepeatType == RepeatType.Daily
+                                                    ? "毎日"
+                                                    : $"毎週 {res.RepeatDays?.ToJapanese()}"
+                                                    )
+                            @($"{res.StartTime:HH:mm}-{res.EndTime:HH:mm}")
+                        </span>
+
+                        <span class="ms-2 badge bg-secondary">
+                            @g.Count() 件
+                        </span>
+                    </button>
+                </h2>
+
+                <div id="@bodyId"
+                     class="accordion-collapse collapse show">
+                    <div class="accordion-body p-0">
+
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>日付</th>
+                                    <th>番組名</th>
+                                    <th>出演</th>
+                                    <th>サイズ</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in g.OrderByDescending(x => x.StartTime))
+                                {
+                                    <tr data-id="@r.Id">
+                                        <td>@r.StartTime.ToString("yyyy/MM/dd(ddd)")</td>
+                                        <td>@r.ProgramName</td>
+                                        <td>@r.CastName</td>
+                                        <td>@r.FileSizeText</td>
+                                        <td class="text-end">
+                                            <a class="btn btn-sm btn-primary"
+                                               href="@Url.Action("Download", new { id = r.Id })">
+                                                📥
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-danger btn-delete"
+                                                    data-id="@r.Id">
+                                                🗑️
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if(normalItems.Any())
+    {
+        <!-- ===== 単発録音：Table ===== -->
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>番組</th>
+                    <th>局</th>
+                    <th>時間</th>
+                    <th>出演</th>
+                    <th>サイズ</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in normalItems)
+                {
+                    <tr data-id="@r.Id">
+                        <td>@r.ProgramName</td>
+                        <td>@r.StationName</td>
+                        <td>@r.TimeRange</td>
+                        <td>@r.CastName</td>
+                        <td>@r.FileSizeText</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-primary"
+                               href="@Url.Action("Download", new { id = r.Id })">
+                                📥
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger btn-delete"
+                                    data-id="@r.Id">
+                                🗑️
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+</div>
+
+<!-- ===== Mobile ===== -->
+<div class="d-md-none">
+
+    <!-- ===== 定期録音：Accordion（全部開く） ===== -->
+    <div class="accordion mb-3" id="recurringAccordionMobile">
+        @foreach (var g in recurringGroups)
+        {
+            var res = g.First().ParentReservation!;
+            var bodyId = $"mbody_{res.Id}";
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#@bodyId"
+                            aria-expanded="true">
+
+                        <strong>@res.ProgramName</strong>
+                        <span class="ms-2 small text-muted">
+                            @(
+                                                    res.RepeatType == RepeatType.Daily
+                                                    ? "毎日"
+                                                    : $"毎週 {res.RepeatDays?.ToJapanese()}"
+                                                    )
+                            @($"{res.StartTime:HH:mm}-{res.EndTime:HH:mm}")
+                        </span>
+                        <span class="ms-2 badge bg-secondary">
+                            @g.Count()
+                        </span>
+                    </button>
+                </h2>
+
+                <div id="@bodyId"
+                     class="accordion-collapse collapse show">
+                    <div class="accordion-body">
+                        @foreach (var r in g.OrderByDescending(x => x.StartTime))
+                        {
+                            <div class="card mb-1 shadow-sm" data-id="@r.Id">
+                                <div class="card-body py-2 px-3">
+
+                                    <div class="d-flex align-items-center justify-content-between">
+
+                                        <!-- 左側：情報 -->
+                                        <div class="me-2">
+                                            <div class="small">
+                                                @r.StartTime.ToString("yyyy/MM/dd(ddd)")
+                                            </div>
+                                            <div class="small fw-semibold">
+                                                @r.ProgramName
+                                            </div>
+                                            <div class="small text-muted">
+                                                @r.CastName / @r.StationName
+                                            </div>
+                                            <div class="small text-muted">
+                                                @r.FileSizeText
+                                            </div>
+                                        </div>
+
+                                        <!-- 右側：ボタン -->
+                                        <div class="text-nowrap">
+                                            <a class="btn btn-sm btn-primary me-1"
+                                               href="@Url.Action("Download", new { id = r.Id })">
+                                                📥
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-danger btn-delete"
+                                                    data-id="@r.Id">
+                                                🗑️
+                                            </button>
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- ===== 単発録音：Compact Card ===== -->
+    @foreach (var r in normalItems)
+    {
+        <div class="card mb-1 shadow-sm" data-id="@r.Id">
+            <div class="card-body py-2 px-3">
+
+                <div class="d-flex align-items-center justify-content-between">
+
+                    <!-- 左側：情報 -->
+                    <div class="me-2">
+                        <div class="small fw-semibold">
+                            @r.ProgramName
+                        </div>
+
+                        <div class="small text-muted">
+                            @r.StationName / @r.TimeRange
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(r.CastName))
+                        {
+                            <div class="small text-muted">
+                                @r.CastName
+                            </div>
+                        }
+
+                        <div class="small text-muted">
+                            @r.FileSizeText
+                        </div>
+                    </div>
+
+                    <!-- 右側：ボタン -->
+                    <div class="text-nowrap">
+                        <a class="btn btn-sm btn-primary me-1"
+                           href="@Url.Action("Download", new { id = r.Id })">
+                            📥
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger btn-delete"
+                                data-id="@r.Id">
+                            🗑️
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    }
+</div>

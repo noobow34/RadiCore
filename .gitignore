@@ -359,5 +359,5 @@ MigrationBackup/
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
 
-/RadikoShift.Test/test.runsettings
-/RadikoShift/Properties/launchSettings.json
+/RadiCore.Test/test.runsettings
+/RadiCore/Properties/launchSettings.json

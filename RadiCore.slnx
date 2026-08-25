@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="RadiCore.Test/RadiCore.Test.csproj" Id="da375932-bd40-4dba-93fd-253b9f1cc485">
+    <Build Solution="Release|*" Project="false" />
+  </Project>
+  <Project Path="RadiCore/RadiCore.csproj" />
+</Solution>
