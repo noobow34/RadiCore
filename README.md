@@ -70,9 +70,15 @@ createdb -U postgres radicore
 psql -U postgres -d radicore -f docs/schema.sql
 ```
 
-[docs/schema.sql](docs/schema.sql) は稼働中のデータベースから `pg_dump --schema-only` で出力したもので、インデックスや制約を含む完全な定義です。EF Core Migrations は使用していないため、スキーマ変更時はこのファイルを更新してください。
+[docs/schema.sql](docs/schema.sql) は稼働中のデータベースから `pg_dump --schema-only` で出力したものです。EF Core Migrations は使用していないため、スキーマを変更した際はこのファイルを更新してください。
 
-適用されるテーブルは以下の 8 つです。各カラムの意味はエンティティクラスを参照してください。
+```bash
+pg_dump -U noobow --schema-only --no-owner --no-privileges radicore > docs/schema.sql
+```
+
+`--no-owner --no-privileges` は特定ロールへの依存を除くためです。なお PostgreSQL 18 の `pg_dump` は先頭と末尾に `\restrict` / `\unrestrict` メタコマンドを出力しますが、古い psql クライアントで実行できなくなるため同梱ファイルからは除いてあります。
+
+適用されるテーブルは以下の 7 つです。各カラムの意味はエンティティクラスを参照してください。
 
 | テーブル | 定義 |
 |---|---|
@@ -83,7 +89,9 @@ psql -U postgres -d radicore -f docs/schema.sql
 | `recordings` | [Recording.cs](RadiCore/Data/Recording.cs) |
 | `recording_audio_data` | [RecordingAudioData.cs](RadiCore/Data/RecordingAudioData.cs) |
 | `app_settings` | [AppSetting.cs](RadiCore/Data/AppSetting.cs) |
-| `stations_staging` / `programs_staging` | 番組表更新時の一時テーブル（`stations` / `programs` と同一定義） |
+
+> [!NOTE]
+> `stations_staging` / `programs_staging` は `docs/schema.sql` に含まれません。番組表更新ジョブが実行のたびに `CREATE TABLE ... (LIKE ... INCLUDING ALL)` で作成し、完了時に破棄する一時テーブルのためです。
 
 
 ### 2. 環境変数
@@ -130,7 +138,14 @@ dotnet publish RadiCore.slnx -c Release --property:PublishDir=/path/to/deploy
 
 ### 番組表の更新
 
-Quartz の Cron トリガーで 1 日 1 回起動し、全放送局の週間番組表を取得します。取得結果はまず `*_staging` テーブルへ一括投入し、成功後に本テーブルへ反映します。取得途中の失敗で番組表が欠損するのを防ぐためです。
+Quartz の Cron トリガーで 1 日 1 回起動し、全放送局の週間番組表を取得します。反映は以下の手順で行い、取得途中の失敗で番組表が欠損するのを防ぎます。
+
+1. `stations_staging` / `programs_staging` を `CREATE TABLE ... (LIKE ... INCLUDING ALL)` で作成
+2. 取得結果を staging へ一括投入（Npgsql.Bulk）
+3. `ALTER TABLE ... RENAME` で本テーブルと入れ替え、旧テーブルを破棄
+
+> [!IMPORTANT]
+> `programs.p_id` の既定値が参照する `stations_id_seq` は、**どのテーブルにも `OWNED BY` されていません**。これは意図的で、手順 3 で旧テーブルを `DROP` した際にシーケンスまで巻き込まれないようにするためです。スキーマを手で作り直す場合、このシーケンスに `OWNED BY` を付けると 2 回目の番組表更新で失敗します。
 
 ### 録音
 
