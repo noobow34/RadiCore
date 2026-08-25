@@ -1,6 +1,0 @@
-<Solution>
-  <Project Path="RadikoShift.Test/RadikoShift.Test.csproj" Id="da375932-bd40-4dba-93fd-253b9f1cc485">
-    <Build Solution="Release|*" Project="false" />
-  </Project>
-  <Project Path="RadikoShift/RadikoShift.csproj" />
-</Solution>

@@ -1,0 +1,7 @@
+{
+  "profiles": {
+    "RadiCore.Test": {
+      "commandName": "Project"
+    }
+  }
+}
