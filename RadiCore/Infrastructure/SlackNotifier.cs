@@ -18,22 +18,20 @@ namespace RadiCore.Infrastructure
             string stationName = recording.StationName ?? recording.StationId;
             var duration = recording.EndTime - recording.StartTime;
 
-            var titleSection = new SectionBlock
-            {
-                Text = new Markdown { Text = $"*{Escape(programName)}*" }
-            };
-            // 番組画像はサムネイルとして添える（URLが不正だと投稿自体が失敗するため形式を確認する）
+            // 番組画像・番組名・放送局を1行にまとめる。
+            // section の accessory は必ず右端に描画されるため、画像を左に出すには context の画像要素にする
+            var headlineElements = new List<IContextElement>();
             if (!string.IsNullOrWhiteSpace(imageUrl)
                 && Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri)
                 && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
             {
-                titleSection.Accessory = new Image { ImageUrl = uri.ToString(), AltText = programName };
+                headlineElements.Add(new Image { ImageUrl = uri.ToString(), AltText = programName });
             }
+            headlineElements.Add(new Markdown { Text = $"*{Escape(programName)}*　{Escape(stationName)}" });
 
             List<IList<TableCell>> rows =
             [
                 Row("項目", "内容"),
-                Row("放送局", stationName),
                 Row("放送日時", $"{recording.StartTime:yyyy/MM/dd(ddd) HH:mm} - {recording.EndTime:HH:mm}（{(int)duration.TotalMinutes}分）"),
             ];
             if (!string.IsNullOrWhiteSpace(recording.CastName))
@@ -53,7 +51,7 @@ namespace RadiCore.Infrastructure
                 Blocks =
                 [
                     new HeaderBlock { Text = new PlainText { Text = ":white_check_mark: 録音完了", Emoji = true } },
-                    titleSection,
+                    new ContextBlock { Elements = headlineElements },
                     new TableBlock
                     {
                         Rows = rows,
