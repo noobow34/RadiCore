@@ -223,19 +223,22 @@ namespace RadiCore.Jobs
                     }
                 }
 
-                var api = new SlackServiceBuilder()
-                    .UseApiToken(Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN"))
-                    .GetApiClient();
-
-                string slackText = $"予約完了\n{reservation}\n{rec}";
-                if (autoDeleted)
-                    slackText += "\n（前回分の録音を自動削除しました）";
-
-                await api.Chat.PostMessage(new Message
+                // 録音完了をSlackへ通知（失敗しても以降のステータス更新は続行する）
+                try
                 {
-                    Text    = slackText,
-                    Channel = Environment.GetEnvironmentVariable("SLACK_NOTIFY_CHANNEL")
-                });
+                    var api = new SlackServiceBuilder()
+                        .UseApiToken(Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN"))
+                        .GetApiClient();
+
+                    var slackMessage = SlackNotifier.BuildRecordingCompleted(reservation, rec, imageUrl, autoDeleted);
+                    slackMessage.Channel = Environment.GetEnvironmentVariable("SLACK_NOTIFY_CHANNEL");
+                    await api.Chat.PostMessage(slackMessage);
+                    this.JournalWriteLine("録音完了をSlackへ通知");
+                }
+                catch (Exception slackEx)
+                {
+                    this.JournalWriteLine($"Slack通知に失敗: {slackEx.Message}");
+                }
 
                 if (reservation.RepeatType == RepeatType.Weekly || reservation.RepeatType == RepeatType.Daily)
                 {

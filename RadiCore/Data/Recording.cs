@@ -54,16 +54,18 @@ namespace RadiCore.Data
         [ForeignKey("ReservationId")]
         public Reservation? Reservation { get; set; } = null;
 
+        /// <summary>「45.3 MB」のようなファイルサイズの表示文字列</summary>
+        [NotMapped]
+        public string FileSizeText => FileSize switch
+        {
+            < 1024 * 1024 => $"{FileSize / 1024.0:F1} KB",
+            < 1024 * 1024 * 1024 => $"{FileSize / (1024.0 * 1024):F1} MB",
+            _ => $"{FileSize / (1024.0 * 1024 * 1024):F2} GB"
+        };
+
         public override string ToString()
         {
             var timeRange = $"{StartTime:yyyy/MM/dd HH:mm}-{EndTime:HH:mm}";
-
-            string sizeText = FileSize switch
-            {
-                < 1024 * 1024 => $"{FileSize / 1024.0:F1} KB",
-                < 1024 * 1024 * 1024 => $"{FileSize / (1024.0 * 1024):F1} MB",
-                _ => $"{FileSize / (1024.0 * 1024 * 1024):F2} GB"
-            };
 
             return
                 $"[Recording #{Id}] " +
@@ -71,7 +73,7 @@ namespace RadiCore.Data
                 $"{StationName ?? StationId} / " +
                 $"{ProgramName ?? "（番組名不明）"}" +
                 (string.IsNullOrWhiteSpace(CastName) ? "" : $" / {CastName}") +
-                $" / File={FileName} ({sizeText})" +
+                $" / File={FileName} ({FileSizeText})" +
                 $" / ReservationId={ReservationId}";
         }
     }

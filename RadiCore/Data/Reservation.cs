@@ -65,26 +65,34 @@ namespace RadiCore.Data
         [Column("auto_delete_previous")]
         public bool AutoDeletePrevious { get; set; } = false;
 
+        /// <summary>「毎週 月 13:00-15:00」のような予約スケジュールの表示文字列</summary>
+        [NotMapped]
+        public string ScheduleText
+        {
+            get
+            {
+                var timeRange = $"{StartTime:HH:mm}-{EndTime:HH:mm}";
+
+                return RepeatType switch
+                {
+                    RepeatType.Once => TargetDate is not null
+                        ? $"{TargetDate:yyyy/MM/dd} {timeRange}"
+                        : $"(日付未設定) {timeRange}",
+
+                    RepeatType.Daily => $"毎日 {timeRange}",
+
+                    RepeatType.Weekly => $"毎週 {RepeatDays!.Value.ToJapanese()} {timeRange}",
+
+                    _ => $"不明な予約 {timeRange}"
+                };
+            }
+        }
+
         public override string ToString()
         {
-            var timeRange = $"{StartTime:HH:mm}-{EndTime:HH:mm}";
-
-            string schedule = RepeatType switch
-            {
-                RepeatType.Once => TargetDate is not null
-                    ? $"{TargetDate:yyyy/MM/dd} {timeRange}"
-                    : $"(日付未設定) {timeRange}",
-
-                RepeatType.Daily => $"毎日 {timeRange}",
-
-                RepeatType.Weekly => $"毎週 {RepeatDays!.Value.ToJapanese()} {timeRange}",
-
-                _ => $"不明な予約 {timeRange}"
-            };
-
             return
                 $"[Reservation #{Id}] " +
-                $"{schedule} / " +
+                $"{ScheduleText} / " +
                 $"{StationName ?? StationId} / " +
                 $"{ProgramName ?? "（番組名不明）"}" +
                 (string.IsNullOrWhiteSpace(CastName) ? "" : $" / {CastName}") +
