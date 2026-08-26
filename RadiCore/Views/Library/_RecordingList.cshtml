@@ -22,6 +22,8 @@
         {
             var res = g.First().ParentReservation!;
             var bodyId = $"body_{res.Id}";
+            // 同じ予約の録音は同じ番組画像なので、行ごとではなくヘッダーに1枚だけ出す
+            var thumb = g.First().ImageUrl;
 
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -30,6 +32,12 @@
                             data-bs-toggle="collapse"
                             data-bs-target="#@bodyId"
                             aria-expanded="true">
+
+                        @if (thumb != null)
+                        {
+                            <img src="@thumb" alt="" width="32" height="32" loading="lazy" decoding="async"
+                                 class="rounded me-2 flex-shrink-0" style="object-fit: cover;" />
+                        }
 
                         <strong>@res.ProgramName</strong>
 
@@ -110,7 +118,14 @@
                 @foreach (var r in normalItems)
                 {
                     <tr data-id="@r.Id">
-                        <td>@r.ProgramName</td>
+                        <td>
+                            @if (r.ImageUrl != null)
+                            {
+                                <img src="@r.ImageUrl" alt="" width="32" height="32" loading="lazy" decoding="async"
+                                     class="rounded me-2" style="object-fit: cover;" />
+                            }
+                            @r.ProgramName
+                        </td>
                         <td>@r.StationName</td>
                         <td>@r.TimeRange</td>
                         <td>@r.CastName</td>
@@ -142,6 +157,7 @@
         {
             var res = g.First().ParentReservation!;
             var bodyId = $"mbody_{res.Id}";
+            var thumb = g.First().ImageUrl;
 
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -151,6 +167,11 @@
                             data-bs-target="#@bodyId"
                             aria-expanded="true">
 
+                        @if (thumb != null)
+                        {
+                            <img src="@thumb" alt="" width="32" height="32" loading="lazy" decoding="async"
+                                 class="rounded me-2 flex-shrink-0" style="object-fit: cover;" />
+                        }
                         <strong>@res.ProgramName</strong>
                         <span class="ms-2 small text-muted">
                             @(
@@ -223,25 +244,33 @@
 
                 <div class="d-flex align-items-center justify-content-between">
 
-                    <!-- 左側：情報 -->
-                    <div class="me-2">
-                        <div class="small fw-semibold">
-                            @r.ProgramName
-                        </div>
-
-                        <div class="small text-muted">
-                            @r.StationName / @r.TimeRange
-                        </div>
-
-                        @if (!string.IsNullOrEmpty(r.CastName))
+                    <!-- 左側：サムネイル＋情報 -->
+                    <div class="d-flex align-items-center me-2">
+                        @if (r.ImageUrl != null)
                         {
-                            <div class="small text-muted">
-                                @r.CastName
-                            </div>
+                            <img src="@r.ImageUrl" alt="" width="40" height="40" loading="lazy" decoding="async"
+                                 class="rounded me-2 flex-shrink-0" style="object-fit: cover;" />
                         }
 
-                        <div class="small text-muted">
-                            @r.FileSizeText
+                        <div>
+                            <div class="small fw-semibold">
+                                @r.ProgramName
+                            </div>
+
+                            <div class="small text-muted">
+                                @r.StationName / @r.TimeRange
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(r.CastName))
+                            {
+                                <div class="small text-muted">
+                                    @r.CastName
+                                </div>
+                            }
+
+                            <div class="small text-muted">
+                                @r.FileSizeText
+                            </div>
                         </div>
                     </div>
 

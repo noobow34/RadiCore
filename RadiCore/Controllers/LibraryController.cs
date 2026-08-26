@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Net.Http.Headers;
 using RadiCore.Data;
+using RadiCore.Infrastructure;
 using RadiCore.ViewModel;
 using System.Data;
 
@@ -11,10 +12,12 @@ namespace RadiCore.Controllers
     public class LibraryController : Controller
     {
         private readonly RadiCoreContext _db;
+        private readonly ImageAvailabilityService _images;
 
-        public LibraryController(RadiCoreContext db)
+        public LibraryController(RadiCoreContext db, ImageAvailabilityService images)
         {
             _db = db;
+            _images = images;
         }
 
         public async Task<IActionResult> IndexAsync()
@@ -32,9 +35,19 @@ namespace RadiCore.Controllers
                     EndTime         = r.EndTime,
                     FileName        = r.FileName,
                     FileSize        = r.FileSize,
+                    // 番組表は直近分しか保持しないため、画像URLは予約に残っているものを使う
+                    ImageUrl        = r.Reservation != null ? r.Reservation.ImageUrl : null,
                     ParentReservation = r.Reservation
                 })
                 .ToListAsync();
+
+            // radiko から消えた画像URLで img タグを出さないよう、配信中のURLだけを残す
+            var availableImages = await _images.FilterAvailableAsync(
+                list.Select(x => x.ImageUrl!).Where(u => u != null),
+                HttpContext.RequestAborted);
+
+            foreach (var item in list.Where(x => x.ImageUrl != null && !availableImages.Contains(x.ImageUrl!)))
+                item.ImageUrl = null;
 
             return View(list);
         }

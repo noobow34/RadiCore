@@ -12,6 +12,10 @@ namespace RadiCore.ViewModel
         public DateTime    EndTime           { get; set; }
         public string      FileName          { get; set; } = null!;
         public long        FileSize          { get; set; }
+
+        /// <summary>番組画像URL。配信されていない場合は null（img タグを出さない）</summary>
+        public string?     ImageUrl          { get; set; }
+
         public Reservation? ParentReservation { get; set; }
 
         public string TimeRange    => $"{StartTime:yyyy/MM/dd(ddd) HH:mm} - {EndTime:HH:mm}";

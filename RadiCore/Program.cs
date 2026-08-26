@@ -58,6 +58,12 @@ builder.Services.AddHealthChecks()
     .AddNpgSql(rsCs, name: "postgres");
 
 builder.Services.AddScoped<AppSettingsService>();
+
+// 番組画像の存在確認（HEAD）とその結果のキャッシュ用
+builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ImageAvailabilityService>();
+
 builder.Services.AddSingleton<QuartzScheduler>(new QuartzScheduler(sch));
 builder.Services.AddHostedService<ReservationBootstrapService>();
 
