@@ -14,6 +14,32 @@ namespace RadiCore.Infrastructure
             _scheduler = scheduler;
         }
 
+        // ── 一時停止 ─────────────────────────────────────────
+
+        /// <summary>
+        /// スケジューラ全体（録音・番組表更新）が一時停止中か。
+        /// 一時停止中もジョブの登録・削除はできるが、トリガーは一切発火しない。
+        /// </summary>
+        public bool IsPaused => _scheduler.InStandbyMode;
+
+        /// <summary>スケジューラ全体を一時停止する</summary>
+        public async Task PauseAllAsync()
+        {
+            if (_scheduler.InStandbyMode) return;
+
+            await _scheduler.Standby();
+            this.JournalWriteLine("スケジューラを一時停止しました");
+        }
+
+        /// <summary>スケジューラ全体を再開する</summary>
+        public async Task ResumeAllAsync()
+        {
+            if (!_scheduler.InStandbyMode) return;
+
+            await _scheduler.Start();
+            this.JournalWriteLine("スケジューラを再開しました");
+        }
+
         // ── 予約ジョブ ───────────────────────────────────────
 
         public async Task RegisterAsync(Reservation reservation)
@@ -81,7 +107,8 @@ namespace RadiCore.Infrastructure
 
             var trigger = TriggerBuilder.Create()
                 .WithIdentity("RefreshPrograms")
-                .WithCronSchedule($"0 {minute} {hour} ? * * *")
+                // 一時停止中に実行時刻を過ぎた分は、再開時にまとめて実行しない
+                .WithCronSchedule($"0 {minute} {hour} ? * * *", x => x.WithMisfireHandlingInstructionDoNothing())
                 .Build();
 
             await _scheduler.DeleteJob(jobKey);
@@ -126,7 +153,8 @@ namespace RadiCore.Infrastructure
             return TriggerBuilder.Create()
                 .WithIdentity($"trigger-{r.Id}")
                 .WithSchedule(
-                    CronScheduleBuilder.DailyAtHourAndMinute(r.EndTime.Hour, r.EndTime.Minute))
+                    CronScheduleBuilder.DailyAtHourAndMinute(r.EndTime.Hour, r.EndTime.Minute)
+                        .WithMisfireHandlingInstructionDoNothing())
                 .Build();
         }
 
@@ -140,7 +168,8 @@ namespace RadiCore.Infrastructure
                 .WithIdentity($"trigger-{r.Id}")
                 .WithSchedule(
                     CronScheduleBuilder.AtHourAndMinuteOnGivenDaysOfWeek(
-                        jobStart.Hour, jobStart.Minute, days))
+                            jobStart.Hour, jobStart.Minute, days)
+                        .WithMisfireHandlingInstructionDoNothing())
                 .Build();
         }
     }

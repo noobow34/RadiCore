@@ -24,6 +24,7 @@ namespace RadiCore.Controllers
                 RefreshMinute = _settings.RefreshMinute,
                 ParallelCount = _settings.ParallelCount,
                 FileNameTemplate = _settings.FileNameTemplate,
+                SchedulerPaused  = _scheduler.IsPaused,
             };
             return View(vm);
         }
@@ -74,9 +75,35 @@ namespace RadiCore.Controllers
             });
         }
 
+        /// <summary>録音・番組表更新のスケジューラ全体を一時停止／再開する</summary>
+        [HttpPost]
+        public async Task<IActionResult> SetSchedulerPaused(bool paused)
+        {
+            if (paused)
+                await _scheduler.PauseAllAsync();
+            else
+                await _scheduler.ResumeAllAsync();
+
+            // プロセス再起動後も状態を維持するため設定として保存する
+            await _settings.SetAsync(AppSettingsService.KeySchedulerPaused, paused.ToString());
+            this.JournalWriteLine($"設定変更: スケジューラ一時停止={paused}");
+
+            return Json(new
+            {
+                success = true,
+                paused,
+                message = paused
+                    ? "録音・番組表更新を一時停止しました。"
+                    : "録音・番組表更新を再開しました。",
+            });
+        }
+
         [HttpPost]
         public async Task<IActionResult> RunNow()
         {
+            if (_scheduler.IsPaused)
+                return Json(new { success = false, message = "一時停止中は実行できません。先に再開してください。" });
+
             await _scheduler.TriggerRefreshJobNowAsync(_settings.ParallelCount);
             this.JournalWriteLine("番組表更新を手動実行");
             return Json(new { success = true, message = "番組表更新を開始しました。完了までしばらくお待ちください。" });

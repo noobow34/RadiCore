@@ -9,6 +9,9 @@ namespace RadiCore.ViewModel
         public int ParallelCount { get; set; }
         public string FileNameTemplate { get; set; } = AppSettingsService.DefaultFileNameTemplate;
 
+        /// <summary>スケジューラが一時停止中か</summary>
+        public bool SchedulerPaused { get; set; }
+
         public int DefaultRefreshHour   => AppSettingsService.DefaultRefreshHour;
         public int DefaultRefreshMinute => AppSettingsService.DefaultRefreshMinute;
         public int DefaultParallelCount => AppSettingsService.DefaultParallelCount;

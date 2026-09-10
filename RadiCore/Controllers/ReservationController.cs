@@ -104,6 +104,10 @@ namespace RadiCore.Controllers
             var r = await _db.Reservations.FindAsync(id);
             if (r == null) return NotFound();
 
+            // 一時停止中はトリガーが発火せず、ジョブが実行されないまま削除されてしまう
+            if (_scheduler.IsPaused)
+                return BadRequest(new { message = "スケジューラが一時停止中のため実行できません。設定画面から再開してください。" });
+
             await _scheduler.RegisterPrevious(r);
             return Ok();
         }

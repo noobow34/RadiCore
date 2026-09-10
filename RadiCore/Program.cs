@@ -8,16 +8,18 @@ string rsCs = Environment.GetEnvironmentVariable("RADICORE_CONNECTION_STRING") ?
 Console.WriteLine($"RADICORE_CONNECTION_STRING:{rsCs.Length}");
 
 // DB から設定を読み込んでスケジュール構築
-int refreshHour   = AppSettingsService.DefaultRefreshHour;
-int refreshMinute = AppSettingsService.DefaultRefreshMinute;
-int parallelCount = AppSettingsService.DefaultParallelCount;
+int  refreshHour     = AppSettingsService.DefaultRefreshHour;
+int  refreshMinute   = AppSettingsService.DefaultRefreshMinute;
+int  parallelCount   = AppSettingsService.DefaultParallelCount;
+bool schedulerPaused = AppSettingsService.DefaultSchedulerPaused;
 try
 {
     using var bootContext = new RadiCoreContext();
     var svc   = new AppSettingsService(bootContext);
-    refreshHour   = svc.RefreshHour;
-    refreshMinute = svc.RefreshMinute;
-    parallelCount = svc.ParallelCount;
+    refreshHour     = svc.RefreshHour;
+    refreshMinute   = svc.RefreshMinute;
+    parallelCount   = svc.ParallelCount;
+    schedulerPaused = svc.SchedulerPaused;
 }
 catch
 {
@@ -35,9 +37,17 @@ var jobDetailRP = JobBuilder.Create<RefreshStationsAndPrograms>()
 var triggerRP = TriggerBuilder.Create()
     .WithIdentity("RefreshPrograms")
     .StartNow()
-    .WithCronSchedule($"0 {refreshMinute} {refreshHour} ? * * *")
+    // 一時停止中に実行時刻を過ぎた分は、再開時にまとめて実行しない
+    .WithCronSchedule($"0 {refreshMinute} {refreshHour} ? * * *", x => x.WithMisfireHandlingInstructionDoNothing())
     .Build();
 await sch.ScheduleJob(jobDetailRP, triggerRP);
+
+// 一時停止の設定はプロセス再起動をまたいで維持する
+if (schedulerPaused)
+{
+    await sch.Standby();
+    Console.WriteLine("スケジューラは一時停止状態で起動しました");
+}
 
 var builder = WebApplication.CreateBuilder(args);
 

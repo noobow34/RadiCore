@@ -10,11 +10,13 @@ namespace RadiCore.Infrastructure
         public const string KeyParallelCount    = "ParallelCount";
         public const string KeyLastRefreshLog   = "LastRefreshLog";
         public const string KeyFileNameTemplate = "FileNameTemplate";
+        public const string KeySchedulerPaused  = "SchedulerPaused";
 
         public const int    DefaultRefreshHour      = 6;
         public const int    DefaultRefreshMinute    = 0;
         public const int    DefaultParallelCount    = 10;
         public const string DefaultFileNameTemplate = RecordingFileNameBuilder.DefaultTemplate;
+        public const bool   DefaultSchedulerPaused  = false;
 
         public const int MinRefreshHour            = 0;
         public const int MaxRefreshHour            = 23;
@@ -37,6 +39,9 @@ namespace RadiCore.Infrastructure
 
         /// <summary>録音ファイル名テンプレート（拡張子を除く）</summary>
         public string FileNameTemplate => GetString(KeyFileNameTemplate, DefaultFileNameTemplate);
+
+        /// <summary>スケジューラ（録音・番組表更新）を一時停止するか</summary>
+        public bool SchedulerPaused => GetBool(KeySchedulerPaused, DefaultSchedulerPaused);
 
         public async Task SetAsync(string key, string value)
         {
@@ -79,6 +84,14 @@ namespace RadiCore.Infrastructure
         {
             var setting = _db.AppSettings.Find(key);
             return string.IsNullOrWhiteSpace(setting?.Value) ? defaultValue : setting.Value;
+        }
+
+        private bool GetBool(string key, bool defaultValue)
+        {
+            var setting = _db.AppSettings.Find(key);
+            if (setting != null && bool.TryParse(setting.Value, out bool v))
+                return v;
+            return defaultValue;
         }
 
         private int GetInt(string key, int defaultValue)

@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@inject RadiCore.Infrastructure.QuartzScheduler Scheduler
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -41,6 +42,14 @@
             </div>
         </nav>
     </header>
+    @if (Scheduler.IsPaused)
+    {
+        @* 一時停止中は録音も番組表更新も止まるため、全画面で気付けるようにする *@
+        <div class="alert alert-danger rounded-0 border-start-0 border-end-0 text-center py-2 mb-3">
+            <strong>一時停止中</strong> — 録音・番組表更新は実行されません。
+            <a asp-controller="Settings" asp-action="Index" class="alert-link">設定</a>から再開できます。
+        </div>
+    }
     <div class="container">
         <main role="main" class="pb-3">
             @RenderBody()

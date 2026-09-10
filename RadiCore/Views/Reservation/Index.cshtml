@@ -253,7 +253,12 @@
 
             try {
                 const res = await fetch('/Reservation/RerunPrevious', { method: 'POST', body: new URLSearchParams({ id: targetId }) });
-                if (!res.ok) throw new Error();
+                if (!res.ok) {
+                    // 一時停止中など、サーバーが理由を返す場合はそれを表示する
+                    const err = await res.json().catch(function () { return null; });
+                    showToast(err?.message ?? '再実行に失敗しました', 'danger');
+                    return;
+                }
                 showToast('前回分の録音を再実行しました', 'success');
             } catch {
                 showToast('再実行に失敗しました', 'danger');
