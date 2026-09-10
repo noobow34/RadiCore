@@ -5,21 +5,24 @@ namespace RadiCore.Infrastructure
 {
     public class AppSettingsService
     {
-        public const string KeyRefreshHour    = "RefreshHour";
-        public const string KeyRefreshMinute  = "RefreshMinute";
-        public const string KeyParallelCount  = "ParallelCount";
-        public const string KeyLastRefreshLog = "LastRefreshLog";
+        public const string KeyRefreshHour      = "RefreshHour";
+        public const string KeyRefreshMinute    = "RefreshMinute";
+        public const string KeyParallelCount    = "ParallelCount";
+        public const string KeyLastRefreshLog   = "LastRefreshLog";
+        public const string KeyFileNameTemplate = "FileNameTemplate";
 
-        public const int DefaultRefreshHour   = 6;
-        public const int DefaultRefreshMinute = 0;
-        public const int DefaultParallelCount = 10;
+        public const int    DefaultRefreshHour      = 6;
+        public const int    DefaultRefreshMinute    = 0;
+        public const int    DefaultParallelCount    = 10;
+        public const string DefaultFileNameTemplate = RecordingFileNameBuilder.DefaultTemplate;
 
-        public const int MinRefreshHour   = 0;
-        public const int MaxRefreshHour   = 23;
-        public const int MinRefreshMinute = 0;
-        public const int MaxRefreshMinute = 59;
-        public const int MinParallelCount = 1;
-        public const int MaxParallelCount = 50;
+        public const int MinRefreshHour            = 0;
+        public const int MaxRefreshHour            = 23;
+        public const int MinRefreshMinute          = 0;
+        public const int MaxRefreshMinute          = 59;
+        public const int MinParallelCount          = 1;
+        public const int MaxParallelCount          = 50;
+        public const int MaxFileNameTemplateLength = 200;
 
         private readonly RadiCoreContext _db;
 
@@ -31,6 +34,9 @@ namespace RadiCore.Infrastructure
         public int RefreshHour   => GetInt(KeyRefreshHour,   DefaultRefreshHour);
         public int RefreshMinute => GetInt(KeyRefreshMinute, DefaultRefreshMinute);
         public int ParallelCount => GetInt(KeyParallelCount, DefaultParallelCount);
+
+        /// <summary>録音ファイル名テンプレート（拡張子を除く）</summary>
+        public string FileNameTemplate => GetString(KeyFileNameTemplate, DefaultFileNameTemplate);
 
         public async Task SetAsync(string key, string value)
         {
@@ -67,6 +73,12 @@ namespace RadiCore.Infrastructure
             if (setting == null) return null;
             try { return JsonSerializer.Deserialize<RefreshLog>(setting.Value); }
             catch { return null; }
+        }
+
+        private string GetString(string key, string defaultValue)
+        {
+            var setting = _db.AppSettings.Find(key);
+            return string.IsNullOrWhiteSpace(setting?.Value) ? defaultValue : setting.Value;
         }
 
         private int GetInt(string key, int defaultValue)

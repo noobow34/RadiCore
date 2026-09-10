@@ -65,6 +65,52 @@
             </div>
         </div>
     </div>
+
+    @* 録音ファイル名設定カード *@
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header fw-bold">録音ファイル名</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label" for="fileNameTemplate">ファイル名テンプレート</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="fileNameTemplate"
+                               value="@Model.FileNameTemplate" maxlength="@Model.MaxFileNameTemplateLength"
+                               spellcheck="false" autocomplete="off" />
+                        <button type="button" class="btn btn-outline-secondary" id="btnResetFileNameTemplate">既定に戻す</button>
+                    </div>
+                    <div class="form-text">
+                        番組のメタデータをプレースホルダーで埋め込めます（デフォルト: <code>@Model.DefaultFileNameTemplate</code>）。
+                        拡張子 <code>.m4a</code> は自動で付きます。ファイル名に使えない文字は <code>_</code> に置き換えられます。
+                    </div>
+                    <div class="mt-2 small">
+                        プレビュー: <code id="fileNamePreview">—</code>
+                        <span id="fileNamePreviewError" class="text-danger ms-2"></span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-label">使用できるプレースホルダー<span class="text-muted small">（クリックで挿入）</span></div>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var ph in Model.FileNamePlaceholders)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-primary placeholder-insert"
+                                    data-token="@ph.Token"
+                                    title="@ph.Description@(ph.SupportsFormat ? "（{名前:書式} で書式指定可）" : "")">
+                                <code class="text-reset">@ph.Token</code>
+                                <span class="text-muted ms-1">@ph.Description</span>
+                            </button>
+                        }
+                    </div>
+                    <div class="form-text">
+                        日付・時刻は <code>{date:yyyy-MM-dd}</code> のように .NET の日時書式で指定できます。
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-success w-100" id="btnSaveFileName">保存</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- 実行ログ モーダル -->
@@ -224,9 +270,8 @@
         }, 500);
     });
 
-    // 設定保存
-    document.getElementById('btnSave').addEventListener('click', async function () {
-        const btn = this;
+    // 設定保存（どちらの保存ボタンからも画面上の全設定を送信する）
+    async function saveSettings(btn) {
         btn.disabled = true;
         btn.textContent = '保存中...';
 
@@ -236,18 +281,67 @@
                 body: new URLSearchParams({
                     refreshHour: document.getElementById('refreshHour').value,
                     refreshMinute: document.getElementById('refreshMinute').value,
-                    parallelCount: document.getElementById('parallelCount').value
+                    parallelCount: document.getElementById('parallelCount').value,
+                    fileNameTemplate: document.getElementById('fileNameTemplate').value
                 })
             });
             if (!res.ok) throw new Error();
             const data = await res.json();
-            showToast(data.message, 'success');
+            showToast(data.message, data.success ? 'success' : 'danger');
         } catch {
             showToast('エラーが発生しました。', 'danger');
         } finally {
             btn.disabled = false;
             btn.textContent = '保存';
         }
+    }
+
+    document.getElementById('btnSave').addEventListener('click', function () { saveSettings(this); });
+    document.getElementById('btnSaveFileName').addEventListener('click', function () { saveSettings(this); });
+
+    // ファイル名テンプレートのプレビュー（入力の都度サーバーで展開する）
+    const templateInput  = document.getElementById('fileNameTemplate');
+    const previewEl      = document.getElementById('fileNamePreview');
+    const previewErrorEl = document.getElementById('fileNamePreviewError');
+    let previewTimer = null;
+
+    function updateFileNamePreview() {
+        fetch('/Settings/PreviewFileName?' + new URLSearchParams({ fileNameTemplate: templateInput.value }))
+            .then(function (res) { if (!res.ok) throw new Error(); return res.json(); })
+            .then(function (res) {
+                previewEl.textContent = res.fileName;
+                previewEl.classList.toggle('text-danger', !res.valid);
+                previewErrorEl.textContent = res.message;
+            })
+            .catch(function () {
+                previewEl.textContent = '—';
+                previewErrorEl.textContent = 'プレビューの取得に失敗しました。';
+            });
+    }
+
+    templateInput.addEventListener('input', function () {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(updateFileNamePreview, 300);
+    });
+    updateFileNamePreview();
+
+    // プレースホルダーをカーソル位置へ挿入
+    document.querySelectorAll('.placeholder-insert').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const token = btn.dataset.token;
+            const start = templateInput.selectionStart ?? templateInput.value.length;
+            const end   = templateInput.selectionEnd   ?? templateInput.value.length;
+            templateInput.value = templateInput.value.slice(0, start) + token + templateInput.value.slice(end);
+            templateInput.focus();
+            templateInput.selectionStart = templateInput.selectionEnd = start + token.length;
+            updateFileNamePreview();
+        });
+    });
+
+    // 既定のテンプレートに戻す
+    document.getElementById('btnResetFileNameTemplate').addEventListener('click', function () {
+        templateInput.value = '@Model.DefaultFileNameTemplate';
+        updateFileNamePreview();
     });
 
     // ログ表示

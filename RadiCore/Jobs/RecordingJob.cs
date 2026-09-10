@@ -111,8 +111,19 @@ namespace RadiCore.Jobs
                     }
                 }
 
-                string fileName  = $@"0_{baseDate:yyyyMMdd}_{programName}.m4a";
-                this.JournalWriteLine($"録音開始: station={station} from={startDateTime:yyyyMMddHHmmss} to={endDateTime:yyyyMMddHHmmss} output={fileName}");
+                string fileNameTemplate = new AppSettingsService(radiCoreContext).FileNameTemplate;
+                string fileName = RecordingFileNameBuilder.Build(fileNameTemplate, new RecordingFileNameMetadata
+                {
+                    ProgramName   = programName,
+                    CastName      = castName,
+                    StationName   = reservation.StationName,
+                    StationId     = reservation.StationId,
+                    ProgramId     = programId,
+                    StartTime     = startDateTime,
+                    EndTime       = endDateTime,
+                    ReservationId = reservation.Id,
+                });
+                this.JournalWriteLine($"録音開始: station={station} from={startDateTime:yyyyMMddHHmmss} to={endDateTime:yyyyMMddHHmmss} output={fileName} (テンプレート: {fileNameTemplate})");
 
                 bool recordSuccess = await RadikoRecorder.RecordAsync(
                     station, startDateTime, endDateTime, fileName, radikoMail, radikoPass,
