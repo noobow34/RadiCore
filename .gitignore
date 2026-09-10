@@ -361,3 +361,6 @@ MigrationBackup/
 
 /RadiCore.Test/test.runsettings
 /RadiCore/Properties/launchSettings.json
+
+# Claude Code
+/.claude/
