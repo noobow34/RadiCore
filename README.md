@@ -107,6 +107,7 @@ Windows の PowerShell 5.1 では `curl` が別コマンドの別名になって
 | `RADICORE_PORT` | — | ブラウザで開くポート番号。既定 `8080` |
 | `RADIKO_MAIL` | — | radiko プレミアムのメールアドレス。未設定ならエリア内の放送局のみ録音できます |
 | `RADIKO_PASS` | — | radiko プレミアムのパスワード |
+| `RADICORE_LOGOUT_URL` | — | 画面右上に表示するログアウトリンクの URL。未設定なら表示しません（[ログアウトリンク](#ログアウトリンク)を参照） |
 | `SLACK_BOT_TOKEN` | — | Slack 通知用の Bot トークン（`xoxb-` で始まる） |
 | `SLACK_NOTIFY_CHANNEL` | — | Slack 通知先のチャンネル ID。トークンと両方設定した場合のみ通知します |
 
@@ -293,6 +294,7 @@ pg_dump -U noobow --schema-only --no-owner --no-privileges radicore > docs/schem
 | `SLACK_NOTIFY_CHANNEL` | — | 通知先チャンネル ID |
 | `RADIKO_MAIL` | — | radiko プレミアムのメールアドレス。**未設定ならフリー（エリア内）モードで動作** |
 | `RADIKO_PASS` | — | radiko プレミアムのパスワード |
+| `RADICORE_LOGOUT_URL` | — | ログアウトリンクの URL。未設定なら表示しない（[ログアウトリンク](#ログアウトリンク)を参照） |
 | `ASPNETCORE_ENVIRONMENT` | — | `Production` / `Development` |
 
 > [!NOTE]
@@ -396,7 +398,20 @@ Quartz の Cron トリガーで 1 日 1 回起動し、全放送局の週間番�
 > [!CAUTION]
 > **本アプリケーションは認証・認可の機構を持ちません。** アクセス制御は前段のリバースプロキシに委ねる設計です。
 >
-> 作者の環境では Cloudflare Access を前段に置いています（画面のログアウトリンクが `/cdn-cgi/access/logout` を指すのはこのためです）。**インターネットに直接公開しないでください。**
+> 作者の環境では Cloudflare Access を前段に置いています。**インターネットに直接公開しないでください。**
+
+### ログアウトリンク
+
+RadiCore 自体にはログイン・ログアウトの機能がありません。画面のナビゲーションに表示できる「ログアウト」は、**前段に置いた認証プロキシのセッションを破棄するためのリンク**です。
+
+もともとは作者自身の環境（Cloudflare Access で保護）専用に、Cloudflare Access のログアウト用パス `/cdn-cgi/access/logout` を固定で表示していました。しかし Cloudflare Access を使っていない環境ではこのリンクは機能しないため、現在は環境変数 `RADICORE_LOGOUT_URL` を設定した場合のみ表示し、**未設定なら表示しません**。
+
+| 前段の構成 | `RADICORE_LOGOUT_URL` の例 |
+|---|---|
+| 認証プロキシなし（LAN 内・VPN 経由など） | 設定しない |
+| Cloudflare Access（作者の環境） | `/cdn-cgi/access/logout` |
+| oauth2-proxy | `/oauth2/sign_out` |
+| その他 | 利用している認証プロキシのログアウト URL |
 
 `/healthz` も認証なしで応答します。判定対象はプロセスの応答性と DB 到達性のみで、radiko への到達性や録音ジョブの状態は含みません（外部要因の障害でデプロイがロールバックされるのを避けるため）。
 
