@@ -73,27 +73,28 @@ RadiCore は、radiko の番組表を取り込み、指定した番組を自動�
 ### 必要なもの
 
 - Docker Engine と Docker Compose v2（`docker compose` コマンド）。Docker Desktop にはどちらも含まれます
-- Git（リポジトリの取得に使用）
 
-### 1. リポジトリを取得する
+使うファイルは `docker-compose.yml` と `.env` の 2 つだけです。リポジトリの clone は不要です。
 
-`docker-compose.yml` はデータベースの初期化に `docs/` 配下の SQL を使うため、リポジトリごと取得します。
+### 1. ファイルを用意する
+
+作業用のフォルダを作り、その中に 2 つのファイルをダウンロードします。
 
 ```bash
-git clone https://github.com/noobow34/RadiCore.git
+mkdir radicore && cd radicore
 ```
 
 ```bash
-cd RadiCore
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/noobow34/RadiCore/master/docker-compose.yml
 ```
-
-### 2. 設定ファイルを作る
-
-ひな形をコピーして `.env` を作成します。
 
 ```bash
-cp .env.example .env
+curl -fsSL -o .env https://raw.githubusercontent.com/noobow34/RadiCore/master/.env.example
 ```
+
+Windows の PowerShell 5.1 では `curl` が別コマンドの別名になっているため、`curl.exe` と入力してください。`curl` が使えない場合は、ブラウザで [docker-compose.yml](docker-compose.yml) と [.env.example](.env.example) を開いて同じフォルダに保存し、`.env.example` を `.env` に名前変更してください。
+
+### 2. 設定する
 
 `.env` をテキストエディタで開き、値を設定します。
 
@@ -118,7 +119,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-初回はイメージのダウンロードとデータベースの初期化が行われます。起動状態は次のコマンドで確認できます（`app` が `healthy` になれば準備完了です）。
+初回はイメージのダウンロードが行われ、アプリの起動時に空のデータベースへテーブルとエリア名の初期データが自動で作成されます。起動状態は次のコマンドで確認できます（`app` が `healthy` になれば準備完了です）。
 
 ```bash
 docker compose ps
@@ -155,10 +156,6 @@ RADICORE_BIND=0.0.0.0
 録音や番組表更新の経過はアプリのログに出力されます。録音に失敗したときはまず `docker compose logs app` を確認してください。
 
 ### アップデート
-
-```bash
-git pull
-```
 
 ```bash
 docker compose pull
@@ -209,7 +206,7 @@ docker compose down -v
 
 - **タイムゾーン** — 番組表・予約時刻を日本時間で扱うため、コンテナは `TZ=Asia/Tokyo` で動作します。ホストのタイムゾーン設定は影響しません
 - **聴取エリア** — radiko プレミアム未設定時は、Docker を動かしているマシンのグローバル IP アドレスで聴取エリアが判定されます。VPN 経由などで海外や別地域の IP になっていると録音できません
-- **ソースからビルド** — `docker-compose.yml` の `image:` 行を `build: .` に置き換えて `docker compose up -d --build` を実行します
+- **ソースからビルド** — リポジトリを clone し、`docker-compose.yml` の `image:` 行を `build: .` に置き換えて `docker compose up -d --build` を実行します
 
 ### イメージの公開（メンテナー向け）
 
@@ -225,14 +222,18 @@ git tag v1.0.0 && git push origin v1.0.0
 
 ### 1. データベースの準備
 
-データベースを作成し、同梱のスキーマ定義を適用します。
+データベースを作成します。
 
 ```bash
 createdb -U postgres radicore
 ```
 
+テーブル定義（[docs/schema.sql](docs/schema.sql)）とエリア名の初期データ（[docs/seed.sql](docs/seed.sql)）は、**アプリの起動時に自動で適用**されます（[DatabaseInitializer.cs](RadiCore/Infrastructure/DatabaseInitializer.cs)）。`reservations` テーブルが無ければ `schema.sql` を、`areas` が空なら `seed.sql` を実行し、既存のデータベースには何もしません。どちらの SQL もアセンブリに埋め込まれるため、実行環境に `docs/` を配置する必要はありません。
+
+手動で適用する場合は以下です。
+
 ```bash
-psql -U postgres -d radicore -f docs/schema.sql
+psql -U postgres -d radicore -f docs/schema.sql -f docs/seed.sql
 ```
 
 [docs/schema.sql](docs/schema.sql) は稼働中のデータベースから `pg_dump --schema-only` で出力したものです。EF Core Migrations は使用していないため、スキーマを変更した際はこのファイルを更新してください。
@@ -241,13 +242,7 @@ psql -U postgres -d radicore -f docs/schema.sql
 pg_dump -U noobow --schema-only --no-owner --no-privileges radicore > docs/schema.sql
 ```
 
-`--no-owner --no-privileges` は特定ロールへの依存を除くためです。なお PostgreSQL 18 の `pg_dump` は先頭と末尾に `\restrict` / `\unrestrict` メタコマンドを出力しますが、古い psql クライアントで実行できなくなるため同梱ファイルからは除いてあります。
-
-続けて、エリア名の初期データを投入します。放送局選択の「エリア名-放送局名」表示に使われます。
-
-```bash
-psql -U postgres -d radicore -f docs/seed.sql
-```
+`--no-owner --no-privileges` は特定ロールへの依存を除くためです。なお PostgreSQL 18 の `pg_dump` は先頭と末尾に `\restrict` / `\unrestrict` メタコマンドを出力しますが、古い psql クライアントで実行できなくなるうえ、起動時の自動適用（Npgsql で直接実行）でも失敗するため、**必ず除いてから**コミットしてください。
 
 適用されるテーブルは以下の 7 つです。各カラムの意味はエンティティクラスを参照してください。
 

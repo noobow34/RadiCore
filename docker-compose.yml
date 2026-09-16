@@ -26,10 +26,8 @@ services:
       TZ: Asia/Tokyo
     volumes:
       # PostgreSQL 18 以降の公式イメージは /var/lib/postgresql 配下にバージョン別のディレクトリを作る
+      # テーブル定義と初期データは app の起動時に自動で適用される
       - db-data:/var/lib/postgresql
-      # データディレクトリが空の初回起動時のみ、ファイル名順に実行される
-      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./docs/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s

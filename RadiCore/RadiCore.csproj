@@ -69,6 +69,12 @@
     <PackageReference Include="z440.atl.core" Version="7.10.0" />
   </ItemGroup>
 
+  <!-- 起動時に空のデータベースを初期化するため、docs/ の SQL を埋め込む（Infrastructure/DatabaseInitializer.cs） -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\docs\schema.sql" LogicalName="schema.sql" />
+    <EmbeddedResource Include="..\docs\seed.sql" LogicalName="seed.sql" />
+  </ItemGroup>
+
   <!--
     Tools/rec_radiko_ts.sh は録音処理をC#化(Radiko/RadikoRecorder.cs)したため実行時には使用しない。
     Radiko側の仕様変更を追跡するための参照実装としてソースツリーには残し、出力ディレクトリへのコピーは行わない。
