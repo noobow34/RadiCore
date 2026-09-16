@@ -1,12 +1,35 @@
 using RadiCore.Data;
+using SlackNet;
 using SlackNet.Blocks;
 using SlackNet.WebApi;
 
 namespace RadiCore.Infrastructure
 {
-    /// <summary>Slack 通知メッセージの組み立て</summary>
+    /// <summary>Slack 通知メッセージの組み立てと送信</summary>
     public static class SlackNotifier
     {
+        /// <summary>SLACK_BOT_TOKEN と SLACK_NOTIFY_CHANNEL が両方設定されているか</summary>
+        public static bool IsConfigured =>
+            !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN"))
+            && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("SLACK_NOTIFY_CHANNEL"));
+
+        /// <summary>
+        /// メッセージを通知チャンネルへ送信する。
+        /// Slack が未設定の場合は何もせず false を返す（通知なしで運用できるようにするため）。
+        /// </summary>
+        public static async Task<bool> PostAsync(Message message)
+        {
+            if (!IsConfigured)
+                return false;
+
+            var api = new SlackServiceBuilder()
+                .UseApiToken(Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN"))
+                .GetApiClient();
+            message.Channel = Environment.GetEnvironmentVariable("SLACK_NOTIFY_CHANNEL");
+            await api.Chat.PostMessage(message);
+            return true;
+        }
+
         /// <summary>録音完了通知を Block Kit（テーブル）で組み立てる</summary>
         /// <param name="reservation">録音元の予約</param>
         /// <param name="recording">保存された録音</param>

@@ -64,9 +64,52 @@ RadiCore は、radiko の番組表を取り込み、指定した番組を自動�
 | PostgreSQL | 動作確認は 18。`bytea` に録音データを格納するため容量に注意 |
 | ffmpeg / ffprobe | **`PATH` 上に必要**。実行ファイル名で直接起動します |
 | radiko プレミアムアカウント | 任意。エリアフリー録音を行う場合のみ |
-| Slack Bot トークン | 通知に使用（後述の注意を参照） |
+| Slack Bot トークン | 任意。録音完了・エラー時の通知に使用 |
 
-## セットアップ
+## Docker で動かす
+
+アプリ本体・ASP.NET Core Runtime・ffmpeg を含むイメージを GitHub Container Registry で配布しています（`linux/amd64` / `linux/arm64`）。PostgreSQL は公式イメージを組み合わせます。
+
+`docker-compose.yml` が `docs/schema.sql` と `docs/seed.sql` をマウントするため、リポジトリを clone してその中で実行します。
+
+```bash
+git clone https://github.com/noobow34/RadiCore.git
+```
+
+```bash
+cd RadiCore && cp .env.example .env
+```
+
+`.env` の `POSTGRES_PASSWORD` などを編集してから起動します。
+
+```bash
+docker compose up -d
+```
+
+`http://localhost:8080` で開けます。初回起動時は番組表が空のため、設定画面から番組表更新を手動実行するか、翌朝の自動更新を待ってください。
+
+- **DB の初期化** — データディレクトリが空の初回起動時のみ、`docs/schema.sql`（テーブル定義）と `docs/seed.sql`（エリア名）が自動で適用されます
+- **データの保存先** — PostgreSQL のデータ（録音データを含む）は名前付きボリューム `db-data` に保存されます
+- **タイムゾーン** — 番組表・予約時刻を JST で扱うため、イメージは `TZ=Asia/Tokyo` で動作します
+- **公開範囲** — 認証機構が無いため、既定では `127.0.0.1` のみで待ち受けます（[セキュリティ](#セキュリティ)を参照）。変更は `.env` の `RADICORE_BIND` / `RADICORE_PORT` で行います
+- **更新** — `docker compose pull && docker compose up -d`
+
+イメージをソースからビルドする場合は、`docker-compose.yml` の `image:` を `build: .` に置き換えてください。
+
+> [!NOTE]
+> radiko のフリー（エリア内）モードでは、Docker ホストのグローバル IP アドレスで聴取エリアが判定されます。
+
+### イメージの公開（メンテナー向け）
+
+`v1.2.3` 形式のタグを push すると、[.github/workflows/docker.yml](.github/workflows/docker.yml) が `ghcr.io/noobow34/radicore` へ `1.2.3` / `1.2` / `1` / `latest` タグでイメージを公開します。
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+初回公開時のパッケージは非公開のため、GitHub の Packages 設定から Public に変更してください。
+
+## セットアップ（Docker を使わない場合）
 
 ### 1. データベースの準備
 
@@ -87,6 +130,12 @@ pg_dump -U noobow --schema-only --no-owner --no-privileges radicore > docs/schem
 ```
 
 `--no-owner --no-privileges` は特定ロールへの依存を除くためです。なお PostgreSQL 18 の `pg_dump` は先頭と末尾に `\restrict` / `\unrestrict` メタコマンドを出力しますが、古い psql クライアントで実行できなくなるため同梱ファイルからは除いてあります。
+
+続けて、エリア名の初期データを投入します。放送局選択の「エリア名-放送局名」表示に使われます。
+
+```bash
+psql -U postgres -d radicore -f docs/seed.sql
+```
 
 適用されるテーブルは以下の 7 つです。各カラムの意味はエンティティクラスを参照してください。
 
@@ -109,14 +158,14 @@ pg_dump -U noobow --schema-only --no-owner --no-privileges radicore > docs/schem
 | 変数名 | 必須 | 内容 |
 |---|:---:|---|
 | `RADICORE_CONNECTION_STRING` | ✅ | Npgsql 接続文字列。例: `Server=host; Port=5432; User Id=user; Password=pass; Database=radicore;` |
-| `SLACK_BOT_TOKEN` | ✅ | Slack Bot トークン（`xoxb-` で始まる） |
-| `SLACK_NOTIFY_CHANNEL` | ✅ | 通知先チャンネル ID |
+| `SLACK_BOT_TOKEN` | — | Slack Bot トークン（`xoxb-` で始まる） |
+| `SLACK_NOTIFY_CHANNEL` | — | 通知先チャンネル ID |
 | `RADIKO_MAIL` | — | radiko プレミアムのメールアドレス。**未設定ならフリー（エリア内）モードで動作** |
 | `RADIKO_PASS` | — | radiko プレミアムのパスワード |
 | `ASPNETCORE_ENVIRONMENT` | — | `Production` / `Development` |
 
 > [!NOTE]
-> Slack 関連の変数は、未設定時のフォールバックを実装していません。通知を行わない運用にする場合は [RecordingJob.cs](RadiCore/Jobs/RecordingJob.cs) と [RefreshStationsAndPrograms.cs](RadiCore/Jobs/RefreshStationsAndPrograms.cs) の通知処理を調整してください。
+> Slack 通知は `SLACK_BOT_TOKEN` と `SLACK_NOTIFY_CHANNEL` の両方が設定されている場合のみ行います。どちらかが未設定なら通知せずに動作します。
 
 ### 3. ビルドと実行
 

@@ -4,7 +4,6 @@ using Quartz;
 using RadiCore.Data;
 using RadiCore.Infrastructure;
 using RadiCore.Radiko;
-using SlackNet;
 using SlackNet.WebApi;
 using System.Collections.Concurrent;
 
@@ -115,16 +114,16 @@ namespace RadiCore.Jobs
                     catch { /* 掃除失敗は無視 */ }
                 }
 
-                var api = new SlackServiceBuilder()
-                    .UseApiToken(Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN"))
-                    .GetApiClient();
                 string errorMessage = $"放送局・番組表更新ジョブ実行中に例外が発生:{ex.StackTrace}";
-                await api.Chat.PostMessage(new Message
-                {
-                    Text = errorMessage,
-                    Channel = Environment.GetEnvironmentVariable("SLACK_NOTIFY_CHANNEL")
-                });
                 this.JournalWriteLine(errorMessage);
+                try
+                {
+                    await SlackNotifier.PostAsync(new Message { Text = errorMessage });
+                }
+                catch (Exception slackEx)
+                {
+                    this.JournalWriteLine($"Slack通知に失敗: {slackEx.Message}");
+                }
 
                 await SaveRefreshLogAsync(new RefreshLog
                 {

@@ -6,7 +6,6 @@ using RadiCore.Data;
 using RadiCore.Infrastructure;
 using RadiCore.Radiko;
 using RadiCore.Reservations;
-using SlackNet;
 using SlackNet.WebApi;
 using File = System.IO.File;
 
@@ -237,14 +236,9 @@ namespace RadiCore.Jobs
                 // 録音完了をSlackへ通知（失敗しても以降のステータス更新は続行する）
                 try
                 {
-                    var api = new SlackServiceBuilder()
-                        .UseApiToken(Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN"))
-                        .GetApiClient();
-
                     var slackMessage = SlackNotifier.BuildRecordingCompleted(reservation, rec, imageUrl, autoDeleted);
-                    slackMessage.Channel = Environment.GetEnvironmentVariable("SLACK_NOTIFY_CHANNEL");
-                    await api.Chat.PostMessage(slackMessage);
-                    this.JournalWriteLine("録音完了をSlackへ通知");
+                    if (await SlackNotifier.PostAsync(slackMessage))
+                        this.JournalWriteLine("録音完了をSlackへ通知");
                 }
                 catch (Exception slackEx)
                 {
@@ -261,12 +255,16 @@ namespace RadiCore.Jobs
             }
             catch (Exception ex)
             {
-                var api = new SlackServiceBuilder()
-                    .UseApiToken(Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN"))
-                    .GetApiClient();
                 string errorMessage = $"録音ジョブ実行中に例外が発生:{ex.StackTrace}";
-                await api.Chat.PostMessage(new Message { Text = errorMessage, Channel = Environment.GetEnvironmentVariable("SLACK_NOTIFY_CHANNEL") });
                 this.JournalWriteLine(errorMessage);
+                try
+                {
+                    await SlackNotifier.PostAsync(new Message { Text = errorMessage });
+                }
+                catch (Exception slackEx)
+                {
+                    this.JournalWriteLine($"Slack通知に失敗: {slackEx.Message}");
+                }
             }
         }
 

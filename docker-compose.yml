@@ -1,0 +1,40 @@
+services:
+  app:
+    image: ghcr.io/noobow34/radicore:latest
+    # ソースからビルドする場合は image の代わりに以下を有効にする
+    # build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${RADICORE_BIND:-127.0.0.1}:${RADICORE_PORT:-8080}:8080"
+    environment:
+      RADICORE_CONNECTION_STRING: "Server=db; Port=5432; User Id=${POSTGRES_USER}; Password=${POSTGRES_PASSWORD}; Database=${POSTGRES_DB};"
+      RADIKO_MAIL: ${RADIKO_MAIL:-}
+      RADIKO_PASS: ${RADIKO_PASS:-}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_NOTIFY_CHANNEL: ${SLACK_NOTIFY_CHANNEL:-}
+
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: Asia/Tokyo
+    volumes:
+      # PostgreSQL 18 以降の公式イメージは /var/lib/postgresql 配下にバージョン別のディレクトリを作る
+      - db-data:/var/lib/postgresql
+      # データディレクトリが空の初回起動時のみ、ファイル名順に実行される
+      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./docs/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db-data:
