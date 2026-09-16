@@ -100,15 +100,20 @@ Windows の PowerShell 5.1 では `curl` が別コマンドの別名になって
 
 | 変数名 | 必須 | 内容 |
 |---|:---:|---|
-| `POSTGRES_USER` | ✅ | データベースのユーザー名 |
-| `POSTGRES_PASSWORD` | ✅ | データベースのパスワード。**必ず変更してください** |
-| `POSTGRES_DB` | ✅ | データベース名 |
+| `POSTGRES_USER` | ✅ | データベースのユーザー名（任意の値） |
+| `POSTGRES_PASSWORD` | ✅ | データベースのパスワード（任意の値）。**ひな形の `change-me` から必ず変更してください** |
+| `POSTGRES_DB` | ✅ | データベース名（任意の値） |
 | `RADICORE_BIND` | — | 待ち受けるアドレス。既定 `127.0.0.1`（このマシンからのみ接続可） |
 | `RADICORE_PORT` | — | ブラウザで開くポート番号。既定 `8080` |
 | `RADIKO_MAIL` | — | radiko プレミアムのメールアドレス。未設定ならエリア内の放送局のみ録音できます |
 | `RADIKO_PASS` | — | radiko プレミアムのパスワード |
 | `SLACK_BOT_TOKEN` | — | Slack 通知用の Bot トークン（`xoxb-` で始まる） |
 | `SLACK_NOTIFY_CHANNEL` | — | Slack 通知先のチャンネル ID。トークンと両方設定した場合のみ通知します |
+
+> [!TIP]
+> PostgreSQL は `docker compose` が**専用のコンテナとして自動で用意**します。`POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` は、そのコンテナ内にデータベースを新しく作るときの設定値です。
+> **事前に PostgreSQL をインストールしたり、既存のデータベースの接続情報を調べたりする必要はありません。** 好きな値を決めて記入してください（ユーザー名と DB 名はひな形の `radicore` のままで構いません）。
+> アプリはこの値を使ってコンテナ内のデータベースへ自動で接続します。
 
 > [!IMPORTANT]
 > `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` は**初回起動時にのみ**データベースへ反映されます。起動後に `.env` だけを書き換えても DB 側は変わらず、接続できなくなります。
