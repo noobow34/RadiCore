@@ -1,3 +1,7 @@
+# プロジェクト名を固定する。未指定だと配置フォルダ名がボリューム名の接頭辞になり、
+# フォルダの名前変更・移動で別の空ボリュームが作られて既存データが見えなくなるため
+name: radicore
+
 services:
   app:
     image: ghcr.io/noobow34/radicore:latest
@@ -17,6 +21,7 @@ services:
       SLACK_NOTIFY_CHANNEL: ${SLACK_NOTIFY_CHANNEL:-}
 
   db:
+    # メジャーバージョン（18）は変更しないこと。データ形式に互換性が無く、上げると起動できなくなる
     image: postgres:18
     restart: unless-stopped
     environment:

@@ -170,9 +170,28 @@ docker compose up -d
 
 特定のバージョンに固定したい場合は、`docker-compose.yml` の `image:` を `ghcr.io/noobow34/radicore:1.0.0` のようにバージョン指定に変更します。
 
+### データの保存場所
+
+録音データを含むすべてのデータは、Docker の名前付きボリューム `radicore_db-data` に保存されています。コンテナとは独立しているため、**イメージの更新やコンテナの作り直し（`docker compose pull` / `up -d` / `down`）ではデータは消えません**。
+
+ボリュームは次のコマンドで確認できます。
+
+```bash
+docker volume ls --filter name=radicore
+```
+
+> [!WARNING]
+> 次の操作ではデータが失われる、または読めなくなります。
+>
+> - **`docker compose down -v`** — ボリュームごと削除されます
+> - **`docker volume prune` / `docker system prune --volumes`** — コンテナから使われていないボリュームが削除されます。RadiCore を停止・`down` している間に実行すると録音データが消えます
+> - **`docker-compose.yml` の `postgres:18` を `postgres:19` などに書き換える** — PostgreSQL はメジャーバージョン間でデータ形式に互換性が無く、起動できなくなります。上げる場合は、下記の手順でバックアップを取り、新しいボリュームへ復元してください
+>
+> なお録音の実行中にコンテナを作り直すと、その録音だけは失敗します（保存済みの録音には影響しません）。
+
 ### バックアップと復元
 
-録音データを含むすべてのデータは PostgreSQL に保存されています（Docker のボリューム `db-data`）。バックアップはダンプファイル 1 つで完結します。以下は `.env` が既定値（ユーザー・DB 名とも `radicore`）の場合の例です。
+バックアップはダンプファイル 1 つで完結します。以下は `.env` が既定値（ユーザー・DB 名とも `radicore`）の場合の例です。
 
 バックアップ:
 
