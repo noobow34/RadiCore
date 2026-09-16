@@ -68,36 +68,148 @@ RadiCore は、radiko の番組表を取り込み、指定した番組を自動�
 
 ## Docker で動かす
 
-アプリ本体・ASP.NET Core Runtime・ffmpeg を含むイメージを GitHub Container Registry で配布しています（`linux/amd64` / `linux/arm64`）。PostgreSQL は公式イメージを組み合わせます。
+アプリ本体・ASP.NET Core Runtime・ffmpeg を含むイメージを GitHub Container Registry（`ghcr.io/noobow34/radicore`）で配布しています。対応アーキテクチャは `linux/amd64` と `linux/arm64`（Raspberry Pi 等）です。データベースには PostgreSQL の公式イメージを使います。
 
-`docker-compose.yml` が `docs/schema.sql` と `docs/seed.sql` をマウントするため、リポジトリを clone してその中で実行します。
+### 必要なもの
+
+- Docker Engine と Docker Compose v2（`docker compose` コマンド）。Docker Desktop にはどちらも含まれます
+- Git（リポジトリの取得に使用）
+
+### 1. リポジトリを取得する
+
+`docker-compose.yml` はデータベースの初期化に `docs/` 配下の SQL を使うため、リポジトリごと取得します。
 
 ```bash
 git clone https://github.com/noobow34/RadiCore.git
 ```
 
 ```bash
-cd RadiCore && cp .env.example .env
+cd RadiCore
 ```
 
-`.env` の `POSTGRES_PASSWORD` などを編集してから起動します。
+### 2. 設定ファイルを作る
+
+ひな形をコピーして `.env` を作成します。
+
+```bash
+cp .env.example .env
+```
+
+`.env` をテキストエディタで開き、値を設定します。
+
+| 変数名 | 必須 | 内容 |
+|---|:---:|---|
+| `POSTGRES_USER` | ✅ | データベースのユーザー名 |
+| `POSTGRES_PASSWORD` | ✅ | データベースのパスワード。**必ず変更してください** |
+| `POSTGRES_DB` | ✅ | データベース名 |
+| `RADICORE_BIND` | — | 待ち受けるアドレス。既定 `127.0.0.1`（このマシンからのみ接続可） |
+| `RADICORE_PORT` | — | ブラウザで開くポート番号。既定 `8080` |
+| `RADIKO_MAIL` | — | radiko プレミアムのメールアドレス。未設定ならエリア内の放送局のみ録音できます |
+| `RADIKO_PASS` | — | radiko プレミアムのパスワード |
+| `SLACK_BOT_TOKEN` | — | Slack 通知用の Bot トークン（`xoxb-` で始まる） |
+| `SLACK_NOTIFY_CHANNEL` | — | Slack 通知先のチャンネル ID。トークンと両方設定した場合のみ通知します |
+
+> [!IMPORTANT]
+> `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` は**初回起動時にのみ**データベースへ反映されます。起動後に `.env` だけを書き換えても DB 側は変わらず、接続できなくなります。
+
+### 3. 起動する
 
 ```bash
 docker compose up -d
 ```
 
-`http://localhost:8080` で開けます。初回起動時は番組表が空のため、設定画面から番組表更新を手動実行するか、翌朝の自動更新を待ってください。
+初回はイメージのダウンロードとデータベースの初期化が行われます。起動状態は次のコマンドで確認できます（`app` が `healthy` になれば準備完了です）。
 
-- **DB の初期化** — データディレクトリが空の初回起動時のみ、`docs/schema.sql`（テーブル定義）と `docs/seed.sql`（エリア名）が自動で適用されます
-- **データの保存先** — PostgreSQL のデータ（録音データを含む）は名前付きボリューム `db-data` に保存されます
-- **タイムゾーン** — 番組表・予約時刻を JST で扱うため、イメージは `TZ=Asia/Tokyo` で動作します
-- **公開範囲** — 認証機構が無いため、既定では `127.0.0.1` のみで待ち受けます（[セキュリティ](#セキュリティ)を参照）。変更は `.env` の `RADICORE_BIND` / `RADICORE_PORT` で行います
-- **更新** — `docker compose pull && docker compose up -d`
+```bash
+docker compose ps
+```
 
-イメージをソースからビルドする場合は、`docker-compose.yml` の `image:` を `build: .` に置き換えてください。
+ブラウザで `http://localhost:8080` を開きます（ポートを変更した場合はその番号）。
 
-> [!NOTE]
-> radiko のフリー（エリア内）モードでは、Docker ホストのグローバル IP アドレスで聴取エリアが判定されます。
+### 4. 番組表を取り込む
+
+初回起動直後は番組表が空です。画面上部の「設定」を開き、**「番組表の手動更新」の「今すぐ実行」** を押してください。全国の放送局を取得するため数分かかります。以降は毎日 6:00（設定画面で変更可）に自動で更新されます。
+
+番組表が表示されたら、番組を選んで予約できます。
+
+### 他の PC やスマートフォンから使う
+
+既定では Docker を動かしているマシン自身からしか開けません。LAN 内の他の端末から使う場合は `.env` を次のように変更し、`docker compose up -d` で反映します。
+
+```dotenv
+RADICORE_BIND=0.0.0.0
+```
+
+> [!CAUTION]
+> RadiCore には**ログイン機能がありません**。URL にアクセスできる人は誰でも予約・録音の削除ができます。ルーターのポート開放などで**インターネットへ直接公開しないでください**。外出先から使う場合は、VPN（Tailscale 等）や認証付きのリバースプロキシ（Cloudflare Access 等）を経由してください。
+
+### 日常の操作
+
+| やりたいこと | コマンド |
+|---|---|
+| 停止 | `docker compose stop` |
+| 再開 | `docker compose start` |
+| ログを見る | `docker compose logs -f app` |
+| `.env` の変更を反映 | `docker compose up -d` |
+
+録音や番組表更新の経過はアプリのログに出力されます。録音に失敗したときはまず `docker compose logs app` を確認してください。
+
+### アップデート
+
+```bash
+git pull
+```
+
+```bash
+docker compose pull
+```
+
+```bash
+docker compose up -d
+```
+
+> [!WARNING]
+> データベースのスキーマ変更は自動では適用されません。新しいバージョンでテーブル定義が変わる場合はリリースノートに記載しますので、その手順に従ってください。
+
+特定のバージョンに固定したい場合は、`docker-compose.yml` の `image:` を `ghcr.io/noobow34/radicore:1.0.0` のようにバージョン指定に変更します。
+
+### バックアップと復元
+
+録音データを含むすべてのデータは PostgreSQL に保存されています（Docker のボリューム `db-data`）。バックアップはダンプファイル 1 つで完結します。以下は `.env` が既定値（ユーザー・DB 名とも `radicore`）の場合の例です。
+
+バックアップ:
+
+```bash
+docker compose exec -T db pg_dump -U radicore -Fc radicore > radicore.dump
+```
+
+復元（既存のデータは上書きされます）:
+
+```bash
+docker compose exec -T db pg_restore -U radicore -d radicore --clean --if-exists < radicore.dump
+```
+
+録音が増えるとダンプファイルも大きくなります。保存先の空き容量に注意してください。
+
+### アンインストール
+
+コンテナを削除します（データは残ります）。
+
+```bash
+docker compose down
+```
+
+**録音データを含むデータベースもすべて削除する**場合は `-v` を付けます。元に戻せません。
+
+```bash
+docker compose down -v
+```
+
+### 補足
+
+- **タイムゾーン** — 番組表・予約時刻を日本時間で扱うため、コンテナは `TZ=Asia/Tokyo` で動作します。ホストのタイムゾーン設定は影響しません
+- **聴取エリア** — radiko プレミアム未設定時は、Docker を動かしているマシンのグローバル IP アドレスで聴取エリアが判定されます。VPN 経由などで海外や別地域の IP になっていると録音できません
+- **ソースからビルド** — `docker-compose.yml` の `image:` 行を `build: .` に置き換えて `docker compose up -d --build` を実行します
 
 ### イメージの公開（メンテナー向け）
 
