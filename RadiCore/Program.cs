@@ -7,6 +7,17 @@ using RadiCore.Jobs;
 string rsCs = Environment.GetEnvironmentVariable("RADICORE_CONNECTION_STRING") ?? "";
 Console.WriteLine($"RADICORE_CONNECTION_STRING:{rsCs.Length}");
 
+// 空のデータベースならテーブル定義と初期データを適用する
+try
+{
+    await DatabaseInitializer.InitializeAsync(rsCs, Console.WriteLine);
+}
+catch (Exception ex)
+{
+    // DB 未準備でもアプリ自体は起動させる（/healthz で DB 到達性を確認できる）
+    Console.WriteLine($"データベースの初期化に失敗しました: {ex.Message}");
+}
+
 // DB から設定を読み込んでスケジュール構築
 int  refreshHour     = AppSettingsService.DefaultRefreshHour;
 int  refreshMinute   = AppSettingsService.DefaultRefreshMinute;

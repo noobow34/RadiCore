@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/*.user
+**/TestResults/
+.git/
+.github/
+.claude/
+RadiCore.Test/
+
+# 接続情報やアカウント情報を含むため、ビルドコンテキストに入れない
+**/Properties/launchSettings.json
+**/*.runsettings
+.env

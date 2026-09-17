@@ -1,4 +1,7 @@
 ﻿@inject RadiCore.Infrastructure.QuartzScheduler Scheduler
+@{
+    string? LogoutUrl = Environment.GetEnvironmentVariable("RADICORE_LOGOUT_URL");
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,9 +37,14 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Settings" asp-action="Index">設定</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" href="/cdn-cgi/access/logout">ログアウト</a>
-                        </li>
+                        @* アプリ自体に認証は無く、前段の認証プロキシ（作者環境では Cloudflare Access）のログアウト用。
+                           RADICORE_LOGOUT_URL が設定されている場合のみ表示する *@
+                        @if (!string.IsNullOrWhiteSpace(LogoutUrl))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" href="@LogoutUrl">ログアウト</a>
+                            </li>
+                        }
                     </ul>
                 </div>
             </div>

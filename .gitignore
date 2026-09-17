@@ -364,3 +364,6 @@ MigrationBackup/
 
 # Claude Code
 /.claude/
+
+# docker compose の設定（接続情報・アカウント情報を含む）
+.env

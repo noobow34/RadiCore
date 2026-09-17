@@ -23,6 +23,18 @@
 
 ---
 
+<div align="center">
+
+## 🐳 [Docker でご利用になりたい方はこちら](docs/docker.md)
+
+[![Docker で使う](https://img.shields.io/badge/Docker%20%E3%81%A7%E4%BD%BF%E3%81%86-%E3%82%BB%E3%83%83%E3%83%88%E3%82%A2%E3%83%83%E3%83%97%E6%89%8B%E9%A0%86%E3%82%92%E8%A6%8B%E3%82%8B-2496ED?style=for-the-badge&logo=docker&logoColor=white)](docs/docker.md)
+
+PostgreSQL・ffmpeg・.NET を個別に用意せず、`docker compose up -d` で起動できます。
+
+</div>
+
+---
+
 ## 概要
 
 RadiCore は、radiko の番組表を取り込み、指定した番組を自動で録音して Web 上のライブラリから再生・ダウンロードできるようにするアプリケーションです。自宅サーバーや VPS 上での常時稼働を想定しています。
@@ -58,26 +70,32 @@ RadiCore は、radiko の番組表を取り込み、指定した番組を自動�
 
 ## 動作要件
 
+以下は Docker を使わずに動かす場合の要件です。[Docker で使う場合](docs/docker.md)は Docker 以外に用意するものはありません。
+
 | 要件 | 備考 |
 |---|---|
 | .NET 10 SDK / Runtime | ビルド時は SDK、実行のみなら ASP.NET Core Runtime |
 | PostgreSQL | 動作確認は 18。`bytea` に録音データを格納するため容量に注意 |
 | ffmpeg / ffprobe | **`PATH` 上に必要**。実行ファイル名で直接起動します |
 | radiko プレミアムアカウント | 任意。エリアフリー録音を行う場合のみ |
-| Slack Bot トークン | 通知に使用（後述の注意を参照） |
+| Slack Bot トークン | 任意。録音完了・エラー時の通知に使用 |
 
-## セットアップ
+## セットアップ（Docker を使わない場合）
 
 ### 1. データベースの準備
 
-データベースを作成し、同梱のスキーマ定義を適用します。
+データベースを作成します。
 
 ```bash
 createdb -U postgres radicore
 ```
 
+テーブル定義（[docs/schema.sql](docs/schema.sql)）とエリア名の初期データ（[docs/seed.sql](docs/seed.sql)）は、**アプリの起動時に自動で適用**されます（[DatabaseInitializer.cs](RadiCore/Infrastructure/DatabaseInitializer.cs)）。`reservations` テーブルが無ければ `schema.sql` を、`areas` が空なら `seed.sql` を実行し、既存のデータベースには何もしません。どちらの SQL もアセンブリに埋め込まれるため、実行環境に `docs/` を配置する必要はありません。
+
+手動で適用する場合は以下です。
+
 ```bash
-psql -U postgres -d radicore -f docs/schema.sql
+psql -U postgres -d radicore -f docs/schema.sql -f docs/seed.sql
 ```
 
 [docs/schema.sql](docs/schema.sql) は稼働中のデータベースから `pg_dump --schema-only` で出力したものです。EF Core Migrations は使用していないため、スキーマを変更した際はこのファイルを更新してください。
@@ -86,7 +104,7 @@ psql -U postgres -d radicore -f docs/schema.sql
 pg_dump -U noobow --schema-only --no-owner --no-privileges radicore > docs/schema.sql
 ```
 
-`--no-owner --no-privileges` は特定ロールへの依存を除くためです。なお PostgreSQL 18 の `pg_dump` は先頭と末尾に `\restrict` / `\unrestrict` メタコマンドを出力しますが、古い psql クライアントで実行できなくなるため同梱ファイルからは除いてあります。
+`--no-owner --no-privileges` は特定ロールへの依存を除くためです。なお PostgreSQL 18 の `pg_dump` は先頭と末尾に `\restrict` / `\unrestrict` メタコマンドを出力しますが、古い psql クライアントで実行できなくなるうえ、起動時の自動適用（Npgsql で直接実行）でも失敗するため、**必ず除いてから**コミットしてください。
 
 適用されるテーブルは以下の 7 つです。各カラムの意味はエンティティクラスを参照してください。
 
@@ -109,14 +127,15 @@ pg_dump -U noobow --schema-only --no-owner --no-privileges radicore > docs/schem
 | 変数名 | 必須 | 内容 |
 |---|:---:|---|
 | `RADICORE_CONNECTION_STRING` | ✅ | Npgsql 接続文字列。例: `Server=host; Port=5432; User Id=user; Password=pass; Database=radicore;` |
-| `SLACK_BOT_TOKEN` | ✅ | Slack Bot トークン（`xoxb-` で始まる） |
-| `SLACK_NOTIFY_CHANNEL` | ✅ | 通知先チャンネル ID |
+| `SLACK_BOT_TOKEN` | — | Slack Bot トークン（`xoxb-` で始まる） |
+| `SLACK_NOTIFY_CHANNEL` | — | 通知先チャンネル ID |
 | `RADIKO_MAIL` | — | radiko プレミアムのメールアドレス。**未設定ならフリー（エリア内）モードで動作** |
 | `RADIKO_PASS` | — | radiko プレミアムのパスワード |
+| `RADICORE_LOGOUT_URL` | — | ログアウトリンクの URL。未設定なら表示しない（[ログアウトリンク](#ログアウトリンク)を参照） |
 | `ASPNETCORE_ENVIRONMENT` | — | `Production` / `Development` |
 
 > [!NOTE]
-> Slack 関連の変数は、未設定時のフォールバックを実装していません。通知を行わない運用にする場合は [RecordingJob.cs](RadiCore/Jobs/RecordingJob.cs) と [RefreshStationsAndPrograms.cs](RadiCore/Jobs/RefreshStationsAndPrograms.cs) の通知処理を調整してください。
+> Slack 通知は `SLACK_BOT_TOKEN` と `SLACK_NOTIFY_CHANNEL` の両方が設定されている場合のみ行います。どちらかが未設定なら通知せずに動作します。
 
 ### 3. ビルドと実行
 
@@ -216,7 +235,20 @@ Quartz の Cron トリガーで 1 日 1 回起動し、全放送局の週間番�
 > [!CAUTION]
 > **本アプリケーションは認証・認可の機構を持ちません。** アクセス制御は前段のリバースプロキシに委ねる設計です。
 >
-> 作者の環境では Cloudflare Access を前段に置いています（画面のログアウトリンクが `/cdn-cgi/access/logout` を指すのはこのためです）。**インターネットに直接公開しないでください。**
+> 作者の環境では Cloudflare Access を前段に置いています。**インターネットに直接公開しないでください。**
+
+### ログアウトリンク
+
+RadiCore 自体にはログイン・ログアウトの機能がありません。画面のナビゲーションに表示できる「ログアウト」は、**前段に置いた認証プロキシのセッションを破棄するためのリンク**です。
+
+もともとは作者自身の環境（Cloudflare Access で保護）専用に、Cloudflare Access のログアウト用パス `/cdn-cgi/access/logout` を固定で表示していました。しかし Cloudflare Access を使っていない環境ではこのリンクは機能しないため、現在は環境変数 `RADICORE_LOGOUT_URL` を設定した場合のみ表示し、**未設定なら表示しません**。
+
+| 前段の構成 | `RADICORE_LOGOUT_URL` の例 |
+|---|---|
+| 認証プロキシなし（LAN 内・VPN 経由など） | 設定しない |
+| Cloudflare Access（作者の環境） | `/cdn-cgi/access/logout` |
+| oauth2-proxy | `/oauth2/sign_out` |
+| その他 | 利用している認証プロキシのログアウト URL |
 
 `/healthz` も認証なしで応答します。判定対象はプロセスの応答性と DB 到達性のみで、radiko への到達性や録音ジョブの状態は含みません（外部要因の障害でデプロイがロールバックされるのを避けるため）。
 
@@ -241,6 +273,29 @@ dotnet build RadiCore.slnx
 ```bash
 dotnet test RadiCore.slnx --settings RadiCore.Test/test.runsettings
 ```
+
+### Docker イメージの公開
+
+`v` で始まるタグを push すると、[.github/workflows/docker.yml](.github/workflows/docker.yml) が `ghcr.io/noobow34/radicore` へ `linux/amd64` と `linux/arm64` のイメージを公開します。
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+初回公開時のパッケージは非公開のため、GitHub の Packages 設定から Public に変更してください。
+
+タグ名は **`v` で始まれば何でも構いません**（起動条件は `v*`）。付与されるイメージのタグは形式によって変わります。
+
+| タグ名 | 付与されるイメージのタグ |
+|---|---|
+| `v1.0.0` | `v1.0.0` / `1.0.0` / `1.0` / `1` / `latest` |
+| `v2026.9.18` | `v2026.9.18` / `2026.9.18` / `2026.9` / `2026` / `latest` |
+| `v20260918` | `v20260918` / `latest` |
+| `v1.0` | `v1.0` / `latest` |
+
+タグ名そのもの（`v` 付き）と `latest` はどの形式でも付きます。`メジャー.マイナー.パッチ` の形式のときだけ、`v` を除いたバージョンと `1.0` / `1` のような部分指定が追加され、マイナーバージョン単位での固定ができます。それ以外の形式では実行ログに semver として解釈できない旨の警告が出ますが、ビルドと公開は行われます。
+
+公開せずにビルドの成否だけを確認したい場合は、GitHub の Actions タブから `Docker image` ワークフローを手動実行（Run workflow）してください。タグを打つ前に Dockerfile の問題を洗い出せます。
 
 ## ライセンス
 
