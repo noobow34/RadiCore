@@ -1,11 +1,11 @@
 name: Docker image
 
-# v1.2.3 形式のタグを push したときだけ、GitHub Container Registry へイメージを公開する。
+# v で始まるタグを push したときだけ、GitHub Container Registry へイメージを公開する。
 # 手動実行（Actions タブの Run workflow）ではビルドの成否だけを確認し、公開はしない。
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -32,16 +32,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # タグ v1.2.3 から 1.2.3 / 1.2 / 1 / latest を付与する
+      # タグ名をそのまま付け、v1.2.3 形式ならバージョン部分（1.2.3 / 1.2 / 1）も併せて付与する。
+      # semver でないタグ（v20260918 など）では semver の行は警告を出してスキップされる
       - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/radicore
+          flavor: |
+            latest=${{ startsWith(github.ref, 'refs/tags/') }}
           tags: |
+            type=ref,event=tag
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=latest
 
       - uses: docker/build-push-action@v6
         with:
