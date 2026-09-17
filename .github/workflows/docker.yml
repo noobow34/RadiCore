@@ -1,10 +1,12 @@
 name: Docker image
 
-# v1.2.3 形式のタグを push したときだけ、GitHub Container Registry へイメージを公開する
+# v1.2.3 形式のタグを push したときだけ、GitHub Container Registry へイメージを公開する。
+# 手動実行（Actions タブの Run workflow）ではビルドの成否だけを確認し、公開はしない。
 on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,6 +15,9 @@ permissions:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    env:
+      # タグ push のときだけ公開する
+      PUBLISH: ${{ startsWith(github.ref, 'refs/tags/') }}
     steps:
       - uses: actions/checkout@v5
 
@@ -21,6 +26,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
+        if: env.PUBLISH == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -41,7 +47,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: ${{ env.PUBLISH == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
