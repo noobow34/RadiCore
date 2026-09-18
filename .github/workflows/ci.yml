@@ -38,5 +38,7 @@ jobs:
 
       - run: dotnet build RadiCore.slnx -c Release
 
+      # RadiCore.slnx は Release 構成でテストプロジェクトをビルドしない設定のため、テストはプロジェクトを直接指定して
+      # ビルドから行う（--no-build にするとテストが 1 件も実行されないまま成功扱いになる）。
       # RefreshStationsAndProgramsTest は radiko と本番相当の DB に接続して 10 分待機する手動確認用のため除外する
-      - run: dotnet test RadiCore.Test/RadiCore.Test.csproj -c Release --no-build --filter "FullyQualifiedName!~RefreshStationsAndProgramsTest"
+      - run: dotnet test RadiCore.Test/RadiCore.Test.csproj -c Release --filter "FullyQualifiedName!~RefreshStationsAndProgramsTest"
