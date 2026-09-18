@@ -149,13 +149,18 @@ namespace RadiCore.Infrastructure
 
         private static string? EmptyToNull(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
+        /// <summary>
+        /// ファイル名に使えない文字。Path.GetInvalidFileNameChars() は実行 OS に依存し、Linux（Docker）では '/' と NUL しか返さない。
+        /// ダウンロードしたファイルは Windows 等でも扱うため、OS に関係なく Windows で使えない文字をすべて置換対象にする
+        /// </summary>
+        private static readonly char[] InvalidFileNameChars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
+
         /// <summary>ファイル名として使えない文字を除去し、長さを制限する</summary>
         private static string Sanitize(string name)
         {
-            var invalid = Path.GetInvalidFileNameChars();
             var sb = new StringBuilder(name.Length);
             foreach (char c in name)
-                sb.Append(invalid.Contains(c) || char.IsControl(c) ? '_' : c);
+                sb.Append(InvalidFileNameChars.Contains(c) || char.IsControl(c) ? '_' : c);
 
             // 末尾のドット・空白はWindowsで扱えないため除去する
             string result = Truncate(sb.ToString().Trim()).TrimEnd('.', ' ');
