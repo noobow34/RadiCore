@@ -90,23 +90,9 @@ RadiCore は、radiko の番組表を取り込み、指定した番組を自動�
 createdb -U postgres radicore
 ```
 
-テーブル定義（[docs/schema.sql](docs/schema.sql)）とエリア名の初期データ（[docs/seed.sql](docs/seed.sql)）は、**アプリの起動時に自動で適用**されます（[DatabaseInitializer.cs](RadiCore/Infrastructure/DatabaseInitializer.cs)）。`reservations` テーブルが無ければ `schema.sql` を、`areas` が空なら `seed.sql` を実行し、既存のデータベースには何もしません。どちらの SQL もアセンブリに埋め込まれるため、実行環境に `docs/` を配置する必要はありません。
+テーブルの作成や、バージョンアップに伴うスキーマ変更は、**アプリの起動時に自動で適用**されます（後述の[マイグレーション](#マイグレーション)を参照）。手動で SQL を実行する必要はありません。
 
-手動で適用する場合は以下です。
-
-```bash
-psql -U postgres -d radicore -f docs/schema.sql -f docs/seed.sql
-```
-
-[docs/schema.sql](docs/schema.sql) は稼働中のデータベースから `pg_dump --schema-only` で出力したものです。EF Core Migrations は使用していないため、スキーマを変更した際はこのファイルを更新してください。
-
-```bash
-pg_dump -U noobow --schema-only --no-owner --no-privileges radicore > docs/schema.sql
-```
-
-`--no-owner --no-privileges` は特定ロールへの依存を除くためです。なお PostgreSQL 18 の `pg_dump` は先頭と末尾に `\restrict` / `\unrestrict` メタコマンドを出力しますが、古い psql クライアントで実行できなくなるうえ、起動時の自動適用（Npgsql で直接実行）でも失敗するため、**必ず除いてから**コミットしてください。
-
-適用されるテーブルは以下の 7 つです。各カラムの意味はエンティティクラスを参照してください。
+作成されるテーブルは以下の 7 つです（このほか適用履歴を記録する `schema_migrations` が作られます）。各カラムの意味はエンティティクラスを参照してください。
 
 | テーブル | 定義 |
 |---|---|
@@ -119,7 +105,7 @@ pg_dump -U noobow --schema-only --no-owner --no-privileges radicore > docs/schem
 | `app_settings` | [AppSetting.cs](RadiCore/Data/AppSetting.cs) |
 
 > [!NOTE]
-> `stations_staging` / `programs_staging` は `docs/schema.sql` に含まれません。番組表更新ジョブが実行のたびに `CREATE TABLE ... (LIKE ... INCLUDING ALL)` で作成し、完了時に破棄する一時テーブルのためです。
+> `stations_staging` / `programs_staging` はマイグレーションに含まれません。番組表更新ジョブが実行のたびに `CREATE TABLE ... (LIKE ... INCLUDING ALL)` で作成し、完了時に破棄する一時テーブルのためです。
 
 
 ### 2. 環境変数
@@ -273,6 +259,38 @@ dotnet build RadiCore.slnx
 ```bash
 dotnet test RadiCore.slnx --settings RadiCore.Test/test.runsettings
 ```
+
+マイグレーションを実際の PostgreSQL で検証するテスト（`DatabaseMigratorIntegrationTest`）は、環境変数 `RADICORE_MIGRATION_TEST_CONNECTION_STRING` に `CREATE DATABASE` できるユーザーの接続文字列を設定した場合のみ実行されます。テストごとに一時データベースを作成・削除するため、既存の DB には触れません。GitHub Actions の [CI](.github/workflows/ci.yml) では PostgreSQL 18 のサービスコンテナに対して毎回実行しています。
+
+### マイグレーション
+
+スキーマは [RadiCore/Migrations/](RadiCore/Migrations/) の番号付き SQL で管理し、起動時に [DatabaseMigrator.cs](RadiCore/Infrastructure/DatabaseMigrator.cs) が未適用のものを番号順に適用します。SQL はアセンブリに埋め込まれるため、利用者はイメージ（またはバイナリ）を更新するだけでスキーマが追従します。
+
+| ファイル | 内容 |
+|---|---|
+| `0001_baseline.sql` | 初期スキーマ（導入時点の `docs/schema.sql`） |
+| `0002_seed_areas.sql` | `areas` の初期データ（47 都道府県） |
+
+- 適用済みのバージョンは `schema_migrations` テーブルに記録されます
+- 各マイグレーションは個別のトランザクションで実行されます。**失敗した場合はアプリの起動を中止します**（スキーマが中途半端なまま録音・番組表更新を動かさないため）。DB に接続できないだけの場合は起動を続けます
+- 複数のプロセスが同時に起動しても二重に適用しないよう、アドバイザリロックで排他します
+- マイグレーション導入前から稼働している DB（`reservations` はあるが `schema_migrations` が無い）は、`0001_baseline` を適用済みとして記録し、`0002` 以降から適用します
+
+**スキーマを変更するときのルール:**
+
+1. `RadiCore/Migrations/` に次の番号のファイルを追加します（例: `0003_add_recordings_memo.sql`）。ファイル名は `NNNN_小文字英数字とアンダースコア.sql` です
+2. **適用済みのファイルは編集しません。** 修正が必要な場合も新しい番号のファイルを追加します
+3. イメージを 1 つ前に戻しても DDL は戻らないため、**古いコードでも動く変更**（列の追加・NULL 許容・既定値付きなど）にします。列の削除や名前変更は「新しい列を追加 → コードを切り替え → 次のリリースで古い列を削除」の 2 段階で行います
+4. `stations` / `programs` への変更も有効です。番組表更新は `LIKE ... INCLUDING ALL` で現在のテーブルを複製して入れ替えるため、追加した列やインデックスは引き継がれます
+5. psql 専用のメタコマンド（`\restrict` など）は使えません（Npgsql で直接実行するため。テストで検出します）
+
+[docs/schema.sql](docs/schema.sql) は現在のスキーマを確認するための**参考資料**で、実行には使われません。スキーマを変更したら稼働中の DB から出力し直してください。
+
+```bash
+pg_dump -U noobow --schema-only --no-owner --no-privileges radicore > docs/schema.sql
+```
+
+`--no-owner --no-privileges` は特定ロールへの依存を除くためです。PostgreSQL 18 の `pg_dump` は先頭と末尾に `\restrict` / `\unrestrict` を出力しますが、古い psql で実行できなくなるため除いてからコミットしてください。
 
 ### Docker イメージの公開
 

@@ -11,8 +11,6 @@ COPY RadiCore/RadiCore.csproj RadiCore/
 RUN dotnet restore RadiCore/RadiCore.csproj -a $TARGETARCH
 
 COPY RadiCore/ RadiCore/
-# 起動時の DB 初期化用に埋め込む SQL
-COPY docs/schema.sql docs/seed.sql docs/
 RUN dotnet publish RadiCore/RadiCore.csproj -c Release -a $TARGETARCH --no-restore -o /out
 
 # ── 実行 ────────────────────────────────────────────────────────────

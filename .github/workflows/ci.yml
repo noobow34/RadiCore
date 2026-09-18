@@ -1,0 +1,42 @@
+name: CI
+
+# ビルドとテスト。マイグレーションは実際の PostgreSQL に対して空の DB から適用できることを確認する
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: radicore
+          POSTGRES_PASSWORD: radicore
+          POSTGRES_DB: radicore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U radicore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      RADICORE_MIGRATION_TEST_CONNECTION_STRING: "Host=localhost;Port=5432;Username=radicore;Password=radicore;Database=radicore"
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - run: dotnet build RadiCore.slnx -c Release
+
+      # RefreshStationsAndProgramsTest は radiko と本番相当の DB に接続して 10 分待機する手動確認用のため除外する
+      - run: dotnet test RadiCore.Test/RadiCore.Test.csproj -c Release --no-build --filter "FullyQualifiedName!~RefreshStationsAndProgramsTest"

@@ -1,5 +1,7 @@
 --
--- areas の初期データ
+-- 0002_seed_areas : areas の初期データ
+--
+-- 既存の行は上書きしない（ON CONFLICT DO NOTHING）ため、エリア名を独自に登録済みの DB に適用しても変化しない。
 --
 -- 放送局の area（radiko の area_id）と表示名の対応表。
 -- area_id は radiko の https://radiko.jp/v3/station/list/JP{n}.xml で確認でき、

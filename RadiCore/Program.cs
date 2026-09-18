@@ -7,15 +7,21 @@ using RadiCore.Jobs;
 string rsCs = Environment.GetEnvironmentVariable("RADICORE_CONNECTION_STRING") ?? "";
 Console.WriteLine($"RADICORE_CONNECTION_STRING:{rsCs.Length}");
 
-// 空のデータベースならテーブル定義と初期データを適用する
+// 未適用のマイグレーションを適用する（空のデータベースならテーブル作成から行う）
 try
 {
-    await DatabaseInitializer.InitializeAsync(rsCs, Console.WriteLine);
+    await DatabaseMigrator.MigrateAsync(rsCs, Console.WriteLine);
+}
+catch (MigrationException ex)
+{
+    // スキーマが中途半端なまま録音・番組表更新を動かさないよう、起動を中止する
+    Console.WriteLine(ex);
+    throw;
 }
 catch (Exception ex)
 {
-    // DB 未準備でもアプリ自体は起動させる（/healthz で DB 到達性を確認できる）
-    Console.WriteLine($"データベースの初期化に失敗しました: {ex.Message}");
+    // DB に接続できない場合でもアプリ自体は起動させる（/healthz で DB 到達性を確認できる）
+    Console.WriteLine($"データベースに接続できないためマイグレーションを実行できませんでした: {ex.Message}");
 }
 
 // DB から設定を読み込んでスケジュール構築
