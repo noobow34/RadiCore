@@ -114,7 +114,7 @@ namespace RadiCore.Jobs
                     catch { /* 掃除失敗は無視 */ }
                 }
 
-                string errorMessage = $"放送局・番組表更新ジョブ実行中に例外が発生:{ex.StackTrace}";
+                string errorMessage = $"放送局・番組表更新ジョブ実行中に例外が発生:{ex}";
                 this.JournalWriteLine(errorMessage);
                 try
                 {

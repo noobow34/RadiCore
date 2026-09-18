@@ -255,7 +255,7 @@ namespace RadiCore.Jobs
             }
             catch (Exception ex)
             {
-                string errorMessage = $"録音ジョブ実行中に例外が発生:{ex.StackTrace}";
+                string errorMessage = $"録音ジョブ実行中に例外が発生:{ex}";
                 this.JournalWriteLine(errorMessage);
                 try
                 {

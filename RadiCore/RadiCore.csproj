@@ -69,6 +69,15 @@
     <PackageReference Include="z440.atl.core" Version="7.10.0" />
   </ItemGroup>
 
+  <!--
+    ローカル時刻の DateTime を timestamp with time zone 列へそのまま書き込むため、Npgsql の旧来のタイムスタンプ動作を有効にする。
+    Npgsql はこのスイッチを最初に使われた時点で一度だけ読むため、RadiCoreContext のコンストラクターだけで設定すると
+    それより前に Npgsql を使う処理（DatabaseInitializer 等）があった場合に効かない。runtimeconfig.json に書き込み、起動時点で確実に有効にする。
+  -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="Npgsql.EnableLegacyTimestampBehavior" Value="true" />
+  </ItemGroup>
+
   <!-- 起動時に空のデータベースを初期化するため、docs/ の SQL を埋め込む（Infrastructure/DatabaseInitializer.cs） -->
   <ItemGroup>
     <EmbeddedResource Include="..\docs\schema.sql" LogicalName="schema.sql" />
